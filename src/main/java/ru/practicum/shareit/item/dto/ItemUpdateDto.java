@@ -1,15 +1,17 @@
 package ru.practicum.shareit.item.dto;
 
+import jakarta.validation.constraints.Size;
+
 /**
- * Request payload for partially updating an item.
- * <p>All fields are optional; non-null values overwrite existing ones.</p>
- *
- * @param name        new name (nullable)
- * @param description new description (nullable)
- * @param available   new availability flag (nullable)
+ * DTO for partial item update.
+ * All fields are optional; non-null values overwrite existing ones.
  */
 public record ItemUpdateDto(
+        @Size(min = 1, max = 255, message = "name must be between 1 and 255 characters")
         String name,
+
+        @Size(min = 1, max = 2000, message = "description must be between 1 and 2000 characters")
         String description,
+
         Boolean available
 ) {}

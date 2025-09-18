@@ -1,5 +1,5 @@
 package ru.practicum.shareit.user.repo;
-
+import org.springframework.stereotype.Repository;
 import ru.practicum.shareit.user.model.User;
 
 import java.util.ArrayList;
@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * - Uses {@link ConcurrentHashMap} and {@link AtomicLong} for lock-free operations.
  * - Email keys are normalized to lower-case (ROOT) once and reused.
  */
+@Repository("userRepository")
 public final class InMemoryUserRepository {
 
     private final ConcurrentHashMap<Long, User> store = new ConcurrentHashMap<>();

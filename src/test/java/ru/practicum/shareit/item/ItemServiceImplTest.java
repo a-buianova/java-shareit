@@ -138,4 +138,22 @@ class ItemServiceImplTest {
         );
         assertEquals("item not found", ex.getMessage());
     }
+
+    @Test
+    @DisplayName("patch(): throws 404 when item not found")
+    void patch_itemNotFound_throws404() {
+        NotFoundException ex = assertThrows(
+                NotFoundException.class,
+                () -> service.patch(existingOwnerId, 999999L, new ItemUpdateDto("X", "Y", true)),
+                "Expected 404-like exception for absent item"
+        );
+        assertEquals("item not found", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("listOwnerItems(): returns empty list when owner has no items")
+    void listOwnerItems_emptyForOwner() {
+        List<ItemResponse> items = service.listOwnerItems(existingOwnerId);
+        assertTrue(items.isEmpty(), "Owner without items must get empty list");
+    }
 }

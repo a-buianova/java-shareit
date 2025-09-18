@@ -54,7 +54,7 @@ public class ItemController {
     @PatchMapping("/{itemId}")
     public ItemResponse patch(@CurrentUserId Long userId,
                               @PathVariable Long itemId,
-                              @RequestBody @Valid ItemUpdateDto dto) {
+                              @RequestBody ItemUpdateDto dto) {
         return service.patch(userId, itemId, dto);
     }
 

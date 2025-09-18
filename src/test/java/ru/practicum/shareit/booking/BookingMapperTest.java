@@ -20,8 +20,6 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("BookingMapper: unit tests")
 class BookingMapperTest {
 
-    private final BookingMapper mapper = new BookingMapper();
-
     @Test
     @DisplayName("toEntity(): creates WAITING booking with given item/booker")
     void toEntity_success() {
@@ -32,7 +30,7 @@ class BookingMapperTest {
         Item item = new Item(5L, "Drill", "600W", true, null, null);
         User booker = new User(7L, "Bob", "b@ex.com");
 
-        Booking booking = mapper.toEntity(dto, item, booker);
+        Booking booking = BookingMapper.toEntity(dto, item, booker);
 
         assertNotNull(booking, "Booking should not be null");
         assertEquals(start, booking.getStart());
@@ -60,7 +58,7 @@ class BookingMapperTest {
                 .status(BookingStatus.WAITING)
                 .build();
 
-        BookingResponse resp = mapper.toResponse(booking);
+        BookingResponse resp = BookingMapper.toResponse(booking);
 
         assertNotNull(resp, "Response must not be null");
         assertEquals(42L, resp.id());
@@ -83,7 +81,7 @@ class BookingMapperTest {
                 .status(BookingStatus.REJECTED)
                 .build();
 
-        BookingResponse resp = mapper.toResponse(booking);
+        BookingResponse resp = BookingMapper.toResponse(booking);
 
         assertNotNull(resp);
         assertEquals(1L, resp.id());

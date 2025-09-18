@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class InMemoryItemRepositoryTest {
 
     @Test
-    @DisplayName("save() + findById() + update(): happy path")
+    @DisplayName("save() + findById() + update(): happy path; save() does not mutate input")
     void save_find_update_success() {
         InMemoryItemRepository repo = new InMemoryItemRepository();
         User owner = new User(1L, "Alice", "a@ex.com");
@@ -29,16 +29,18 @@ class InMemoryItemRepositoryTest {
                 .owner(owner)
                 .build();
 
-        repo.save(item);
-        Optional<Item> saved = repo.findById(item.getId());
+        Item persisted = repo.save(item);
 
-        assertTrue(saved.isPresent(), "Saved item must be found by id");
-        assertNotNull(item.getId(), "ID must be assigned on save");
+        assertNull(item.getId(), "Original item must not be mutated by save()");
+        assertNotNull(persisted.getId(), "ID must be assigned on save (returned instance)");
 
-        item.setDescription("Updated");
-        repo.update(item);
+        Optional<Item> fetchedOpt = repo.findById(persisted.getId());
+        assertTrue(fetchedOpt.isPresent(), "Saved item must be found by id");
 
-        Item afterUpdate = repo.findById(item.getId()).orElseThrow();
+        persisted.setDescription("Updated");
+        repo.update(persisted);
+
+        Item afterUpdate = repo.findById(persisted.getId()).orElseThrow();
         assertEquals("Updated", afterUpdate.getDescription(), "Description must be updated");
     }
 
@@ -61,15 +63,13 @@ class InMemoryItemRepositoryTest {
     }
 
     @Test
-    @DisplayName("searchAvailable(): blank or null -> empty; case-insensitive; filters unavailable")
-    void searchAvailable_blankCaseInsensitive_filtersUnavailable() {
+    @DisplayName("searchAvailable(): case-insensitive and filters unavailable (null/blank handled at service)")
+    void searchAvailable_caseInsensitive_filtersUnavailable() {
         InMemoryItemRepository repo = new InMemoryItemRepository();
         User owner = new User(1L, "Alice", "a@ex.com");
+
         repo.save(Item.builder().name("Drill").description("Hammer mode").available(true).owner(owner).build());
         repo.save(Item.builder().name("Old DRILL").description("Broken").available(false).owner(owner).build());
-
-        assertTrue(repo.searchAvailable("   ").isEmpty(), "Blank query must return empty list");
-        assertTrue(repo.searchAvailable(null).isEmpty(), "Null query must return empty list");
 
         List<Item> found = repo.searchAvailable("drill");
 

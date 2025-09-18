@@ -1,12 +1,9 @@
 package ru.practicum.shareit.item.repo;
 
+import org.springframework.stereotype.Repository;
 import ru.practicum.shareit.item.model.Item;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
@@ -18,45 +15,58 @@ import java.util.stream.Collectors;
  * - Items are stored in a concurrent map; owner index kept in sync on save/update.
  * - Returns defensive copies (snapshots) to avoid accidental external mutation.
  */
+
+@Repository("itemRepository")
 public final class InMemoryItemRepository {
 
     private final ConcurrentHashMap<Long, Item> store = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, CopyOnWriteArrayList<Item>> byOwner = new ConcurrentHashMap<>();
     private final AtomicLong seq = new AtomicLong(0);
 
-    /** @return persisted entity with generated id and owner index updated. */
-    public Item save(Item i) {
+    private static final List<Item> EMPTY = Collections.emptyList();
+
+    /**
+     * Persist a copy of the given item and assign a generated id.
+     */
+
+    public Item save(Item src) {
         long id = seq.incrementAndGet();
-        i.setId(id);
-        store.put(id, i);
+        Item persisted = copyWithId(src, id);
+        store.put(id, persisted);
 
-        Long ownerId = i.getOwner() != null ? i.getOwner().getId() : null;
+        Long ownerId = persisted.getOwner() != null ? persisted.getOwner().getId() : null;
         if (ownerId != null) {
-            byOwner.computeIfAbsent(ownerId, k -> new CopyOnWriteArrayList<>()).add(i);
+            byOwner.computeIfAbsent(ownerId, k -> new CopyOnWriteArrayList<>()).add(persisted);
         }
-        return i;
+        return persisted;
     }
 
+    /** Finds by id; returns a defensive copy if present. */
     public Optional<Item> findById(Long id) {
-        return Optional.ofNullable(store.get(id));
+        return Optional.ofNullable(store.get(id)).map(this::copy);
     }
 
-    /** @return snapshot list of owner's items (never null). */
+    /** Lists items by owner; returns an immutable snapshot (may be empty). */
     public List<Item> findByOwner(Long ownerId) {
-        return new ArrayList<>(byOwner.getOrDefault(ownerId, new CopyOnWriteArrayList<>()));
+        List<Item> bucket = byOwner.get(ownerId);
+        if (bucket == null || bucket.isEmpty()) return EMPTY;
+        List<Item> out = new ArrayList<>(bucket.size());
+        for (Item it : bucket) out.add(copy(it));
+        return out;
     }
 
     /**
-     * @apiNote Full replace by id; maintains owner index if the owner changed.
-     * @return updated entity or empty if not found.
+     * Replace item by id and keep owner index consistent.
+     * @return updated entity (never {@code null})
+     * @throws NoSuchElementException if the entity does not exist
      */
-    public Optional<Item> update(Item i) {
+    public Item update(Item i) {
         if (i == null || i.getId() == null) {
-            return Optional.empty();
+            throw new NoSuchElementException("item not found");
         }
         Item old = store.get(i.getId());
         if (old == null) {
-            return Optional.empty();
+            throw new NoSuchElementException("item not found");
         }
 
         store.put(i.getId(), i);
@@ -66,36 +76,72 @@ public final class InMemoryItemRepository {
 
         if (!Objects.equals(oldOwnerId, newOwnerId)) {
             if (oldOwnerId != null) {
-                byOwner.getOrDefault(oldOwnerId, new CopyOnWriteArrayList<>())
-                        .removeIf(it -> it.getId().equals(i.getId()));
+                List<Item> oldBucket = byOwner.get(oldOwnerId);
+                if (oldBucket != null) {
+                    oldBucket.removeIf(it -> it.getId().equals(i.getId()));
+                }
             }
             if (newOwnerId != null) {
                 byOwner.computeIfAbsent(newOwnerId, k -> new CopyOnWriteArrayList<>()).add(i);
             }
+        } else if (newOwnerId != null) {
+            // Владелец не изменился — заменить экземпляр в корзине владельца
+            List<Item> bucket = byOwner.get(newOwnerId);
+            if (bucket != null) {
+                for (int idx = 0; idx < bucket.size(); idx++) {
+                    if (Objects.equals(bucket.get(idx).getId(), i.getId())) {
+                        bucket.set(idx, i);
+                        break;
+                    }
+                }
+            }
         }
-        return Optional.of(i);
+
+        return i;
     }
 
     /**
      * @apiNote Case-insensitive search by name/description; returns only available items.
-     * Blank or null query -> empty list.
+     * Assumes {@code text} is validated upstream (non-null, non-blank).
      */
     public List<Item> searchAvailable(String text) {
-        if (text == null) {
-            return List.of();
-        }
-        String q = text.trim().toLowerCase(Locale.ROOT);
-        if (q.isEmpty()) {
-            return List.of();
-        }
+        String q = text.toLowerCase(Locale.ROOT);
         return store.values().stream()
                 .filter(Item::isAvailable)
                 .filter(i -> containsIgnoreCase(i.getName(), q) || containsIgnoreCase(i.getDescription(), q))
+                .map(this::copy)
                 .collect(Collectors.toList());
     }
 
+    // ---- helpers ----
+
     private boolean containsIgnoreCase(String src, String needleLower) {
-        if (src == null) return false;
-        return src.toLowerCase(Locale.ROOT).contains(needleLower);
+        return src != null && src.toLowerCase(Locale.ROOT).contains(needleLower);
+    }
+
+    /** Defensive copy for returning to callers. */
+    private Item copy(Item s) {
+        if (s == null) return null;
+        return Item.builder()
+                .id(s.getId())
+                .name(s.getName())
+                .description(s.getDescription())
+                .available(s.isAvailable())
+                .owner(s.getOwner())
+                .request(s.getRequest())
+                .build();
+    }
+
+    /** Internal copy used when assigning a new id at save time. */
+    private Item copyWithId(Item s, Long id) {
+        if (s == null) return null;
+        return Item.builder()
+                .id(id)
+                .name(s.getName())
+                .description(s.getDescription())
+                .available(s.isAvailable())
+                .owner(s.getOwner())
+                .request(s.getRequest())
+                .build();
     }
 }

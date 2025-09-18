@@ -52,12 +52,17 @@ public class ItemServiceImpl implements ItemService {
             throw new ForbiddenException("forbidden: not an owner");
         }
         mapper.patch(existing, dto);
-        Item updated = repo.update(existing).orElseThrow(() -> new NotFoundException("item not found"));
+        Item updated = repo.update(existing);
         return mapper.toResponse(updated);
     }
 
     @Override
     public List<ItemResponse> search(String text) {
-        return repo.searchAvailable(text).stream().map(mapper::toResponse).toList();
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        return repo.searchAvailable(text).stream()
+                .map(mapper::toResponse)
+                .toList();
     }
 }
