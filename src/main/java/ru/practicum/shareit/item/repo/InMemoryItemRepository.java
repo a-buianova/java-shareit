@@ -10,12 +10,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
- * @apiNote Thread-safe in-memory item repository with a secondary index by owner id.
- * @implNote
+ * Thread-safe in-memory item repository with a secondary index by owner id.
+ * <p>
  * - Items are stored in a concurrent map; owner index kept in sync on save/update.
  * - Returns defensive copies (snapshots) to avoid accidental external mutation.
  */
-
 @Repository("itemRepository")
 public final class InMemoryItemRepository {
 
@@ -23,15 +22,12 @@ public final class InMemoryItemRepository {
     private final ConcurrentHashMap<Long, CopyOnWriteArrayList<Item>> byOwner = new ConcurrentHashMap<>();
     private final AtomicLong seq = new AtomicLong(0);
 
-    private static final List<Item> EMPTY = Collections.emptyList();
-
     /**
      * Persist a copy of the given item and assign a generated id.
      */
-
     public Item save(Item src) {
         long id = seq.incrementAndGet();
-        Item persisted = copyWithId(src, id);
+        Item persisted = copy(src, id);
         store.put(id, persisted);
 
         Long ownerId = persisted.getOwner() != null ? persisted.getOwner().getId() : null;
@@ -41,22 +37,32 @@ public final class InMemoryItemRepository {
         return persisted;
     }
 
-    /** Finds by id; returns a defensive copy if present. */
+    /**
+     * Find by id; returns a defensive copy if present.
+     */
     public Optional<Item> findById(Long id) {
-        return Optional.ofNullable(store.get(id)).map(this::copy);
+        return Optional.ofNullable(store.get(id)).map(s -> copy(s, null));
     }
 
-    /** Lists items by owner; returns an immutable snapshot (may be empty). */
+    /**
+     * List items by owner; returns an immutable snapshot (may be empty).
+     */
     public List<Item> findByOwner(Long ownerId) {
         List<Item> bucket = byOwner.get(ownerId);
-        if (bucket == null || bucket.isEmpty()) return EMPTY;
+        if (bucket == null || bucket.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         List<Item> out = new ArrayList<>(bucket.size());
-        for (Item it : bucket) out.add(copy(it));
+        for (Item it : bucket) {
+            out.add(copy(it, null));
+        }
         return out;
     }
 
     /**
      * Replace item by id and keep owner index consistent.
+     *
      * @return updated entity (never {@code null})
      * @throws NoSuchElementException if the entity does not exist
      */
@@ -85,7 +91,6 @@ public final class InMemoryItemRepository {
                 byOwner.computeIfAbsent(newOwnerId, k -> new CopyOnWriteArrayList<>()).add(i);
             }
         } else if (newOwnerId != null) {
-            // Владелец не изменился — заменить экземпляр в корзине владельца
             List<Item> bucket = byOwner.get(newOwnerId);
             if (bucket != null) {
                 for (int idx = 0; idx < bucket.size(); idx++) {
@@ -96,12 +101,11 @@ public final class InMemoryItemRepository {
                 }
             }
         }
-
         return i;
     }
 
     /**
-     * @apiNote Case-insensitive search by name/description; returns only available items.
+     * Case-insensitive search by name/description; returns only available items.
      * Assumes {@code text} is validated upstream (non-null, non-blank).
      */
     public List<Item> searchAvailable(String text) {
@@ -109,7 +113,7 @@ public final class InMemoryItemRepository {
         return store.values().stream()
                 .filter(Item::isAvailable)
                 .filter(i -> containsIgnoreCase(i.getName(), q) || containsIgnoreCase(i.getDescription(), q))
-                .map(this::copy)
+                .map(s -> copy(s, null))
                 .collect(Collectors.toList());
     }
 
@@ -119,24 +123,10 @@ public final class InMemoryItemRepository {
         return src != null && src.toLowerCase(Locale.ROOT).contains(needleLower);
     }
 
-    /** Defensive copy for returning to callers. */
-    private Item copy(Item s) {
+    private Item copy(Item s, Long idOverride) {
         if (s == null) return null;
         return Item.builder()
-                .id(s.getId())
-                .name(s.getName())
-                .description(s.getDescription())
-                .available(s.isAvailable())
-                .owner(s.getOwner())
-                .request(s.getRequest())
-                .build();
-    }
-
-    /** Internal copy used when assigning a new id at save time. */
-    private Item copyWithId(Item s, Long id) {
-        if (s == null) return null;
-        return Item.builder()
-                .id(id)
+                .id(idOverride != null ? idOverride : s.getId())
                 .name(s.getName())
                 .description(s.getDescription())
                 .available(s.isAvailable())
