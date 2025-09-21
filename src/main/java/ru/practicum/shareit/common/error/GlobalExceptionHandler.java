@@ -115,6 +115,14 @@ public class GlobalExceptionHandler {
         return body(HttpStatus.BAD_REQUEST, message, req);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest req) {
+        String message = safeMsg(ex.getMessage(), "Invalid parameter");
+        log.warn("400 {} {} -> {}", req.getMethod(), req.getRequestURI(), message);
+        return body(HttpStatus.BAD_REQUEST, message, req);
+    }
+
     // ---- 405 Method Not Allowed ----
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)

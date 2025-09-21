@@ -6,7 +6,9 @@ import ru.practicum.shareit.user.dto.UserUpdateDto;
 
 import java.util.List;
 
-/** Use-case API for users. */
+/**
+ * Use-case API for managing users.
+ */
 public interface UserService {
 
     UserResponse create(UserCreateDto dto);

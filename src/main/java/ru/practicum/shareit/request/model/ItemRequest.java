@@ -1,32 +1,50 @@
 package ru.practicum.shareit.request.model;
 
+import jakarta.persistence.*;
 import lombok.*;
 import ru.practicum.shareit.user.model.User;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
- * Domain model for an item request.
+ * JPA entity for item requests.
+ * <p>
+ * Columns:
+ * - description  — non-null text
+ * - requestor_id — FK to users(id)
+ * - created      — creation timestamp (set on persist)
  */
 @Getter
 @Setter
 @ToString
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @Builder
-public final class ItemRequest {
+@Entity
+@Table(name = "item_requests")
+public class ItemRequest {
 
-    /** Surrogate primary key. */
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
 
-    /** Free-text description of the requested item. */
+    @Column(nullable = false)
     private String description;
 
-    /** User who created the request. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "requester_id", nullable = false) // <-- фикс: requestor_id
+    @ToString.Exclude
     private User requestor;
 
-    /** Timestamp when the request was created. */
-    private LocalDateTime created;
+    @Column(nullable = false, updatable = false)
+    private Instant created;
+
+    @PrePersist
+    void prePersist() {
+        if (created == null) {
+            created = Instant.now();
+        }
+    }
 }

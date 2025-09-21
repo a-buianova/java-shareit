@@ -1,37 +1,43 @@
 package ru.practicum.shareit.item.model;
 
+import jakarta.persistence.*;
 import lombok.*;
 import ru.practicum.shareit.request.model.ItemRequest;
 import ru.practicum.shareit.user.model.User;
 
 /**
- * Domain model for a shareable item.
+ * JPA entity for shareable items.
  */
 @Getter
 @Setter
-@ToString
+@ToString(exclude = {"owner", "request"})
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public final class Item {
+@Entity
+@Table(name = "items")
+public class Item {
 
-    /** Surrogate primary key. */
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
 
-    /** Display name of the item. */
+    @Column(nullable = false, length = 255)
     private String name;
 
-    /** Human-readable description. */
+    @Column(nullable = false)
     private String description;
 
-    /** Whether the item is currently available for booking. */
+    @Column(nullable = false)
     private boolean available;
 
-    /** The owner of the item. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
-    /** Optional link to the originating item request (nullable). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "request_id")
     private ItemRequest request;
 }

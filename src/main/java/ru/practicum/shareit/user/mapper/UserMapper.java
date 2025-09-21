@@ -8,13 +8,11 @@ import ru.practicum.shareit.user.dto.UserUpdateDto;
 import ru.practicum.shareit.user.model.User;
 
 /**
- * @apiNote Manual mapper for converting between {@link User} entities and DTOs.
- * @implNote Chosen instead of MapStruct to keep build simple and explicit in sprint 14.
+ * Manual mapper for User <-> DTO.
  */
 @Component
 public final class UserMapper {
 
-    /** Convert create DTO into a new {@link User} entity. */
     public User toEntity(UserCreateDto dto) {
         return User.builder()
                 .name(dto.name())
@@ -22,15 +20,8 @@ public final class UserMapper {
                 .build();
     }
 
-    /** Convert entity into response DTO. */
     public UserResponse toResponse(@Nullable User u) {
         if (u == null) return null;
         return new UserResponse(u.getId(), u.getName(), u.getEmail());
-    }
-
-    /** Apply patch update: only non-null fields overwrite entity values. */
-    public void patch(User target, UserUpdateDto dto) {
-        if (dto.name() != null) target.setName(dto.name());
-        if (dto.email() != null) target.setEmail(dto.email());
     }
 }
