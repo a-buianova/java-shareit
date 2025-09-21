@@ -74,28 +74,38 @@ public class ItemServiceImpl implements ItemService {
         }
 
         List<Item> items = itemRepo.findAllByOwner_IdOrderByIdAsc(ownerId);
-
         if (items.isEmpty()) {
             return List.of();
         }
 
-        List<Long> ids = items.stream().map(Item::getId).toList();
-        List<Comment> allComments = commentRepo.findByItem_IdInOrderByCreatedAsc(ids);
+        List<Long> itemIds = items.stream().map(Item::getId).toList();
+        List<Comment> allComments = commentRepo.findByItem_IdInOrderByCreatedAsc(itemIds);
         Map<Long, List<Comment>> commentsByItem =
                 allComments.stream().collect(Collectors.groupingBy(c -> c.getItem().getId(), Collectors.toList()));
 
         Instant now = Instant.now();
+
+        List<Booking> lastAll = bookingRepo.findAllLastForItems(itemIds, BookingStatus.APPROVED, now);
+        Map<Long, Booking> lastByItem = new HashMap<>();
+        for (Booking b : lastAll) {
+            Long id = b.getItem().getId();
+            lastByItem.putIfAbsent(id, b); // первый в списке — самый "последний"
+        }
+
+        List<Booking> nextAll = bookingRepo.findAllNextForItems(itemIds, BookingStatus.APPROVED, now);
+        Map<Long, Booking> nextByItem = new HashMap<>();
+        for (Booking b : nextAll) {
+            Long id = b.getItem().getId();
+            nextByItem.putIfAbsent(id, b); // первый в списке — самый ближний
+        }
+
         List<ItemDetailsResponse> out = new ArrayList<>(items.size());
-        for (Item i : items) {
-            Long itemId = i.getId();
-            Booking last = bookingRepo
-                    .findTopByItem_IdAndStatusAndStartBeforeOrderByStartDesc(itemId, BookingStatus.APPROVED, now)
-                    .orElse(null);
-            Booking next = bookingRepo
-                    .findTopByItem_IdAndStatusAndStartAfterOrderByStartAsc(itemId, BookingStatus.APPROVED, now)
-                    .orElse(null);
-            List<Comment> comments = commentsByItem.getOrDefault(itemId, List.of());
-            out.add(mapper.toDetails(i, last, next, comments));
+        for (Item it : items) {
+            Long id = it.getId();
+            Booking last = lastByItem.get(id);
+            Booking next = nextByItem.get(id);
+            List<Comment> comments = commentsByItem.getOrDefault(id, List.of());
+            out.add(mapper.toDetails(it, last, next, comments));
         }
         return out;
     }

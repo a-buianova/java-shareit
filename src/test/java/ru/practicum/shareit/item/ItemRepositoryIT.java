@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @DisplayName("ItemRepository: searchAvailable()")
-class ItemRepositoryTest {
+class ItemRepositoryIT {
 
     @Autowired ItemRepository itemRepo;
     @Autowired UserRepository userRepo;

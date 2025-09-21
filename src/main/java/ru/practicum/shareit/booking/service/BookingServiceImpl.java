@@ -21,6 +21,7 @@ import ru.practicum.shareit.user.repo.UserRepository;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Service
@@ -40,16 +41,25 @@ public class BookingServiceImpl implements BookingService {
         Item item = itemRepo.findById(dto.itemId())
                 .orElseThrow(() -> new NotFoundException("item not found"));
 
-        LocalDateTime start = dto.start();
-        LocalDateTime end   = dto.end();
-        if (start == null || end == null || !start.isBefore(end)) {
-            throw new BadRequestException("invalid time window");
-        }
         if (!item.isAvailable()) {
             throw new BadRequestException("item is not available");
         }
         if (item.getOwner() != null && item.getOwner().getId().equals(userId)) {
             throw new NotFoundException("owner cannot book own item");
+        }
+
+        if (!dto.start().isBefore(dto.end())) {
+            throw new BadRequestException("invalid time window");
+        }
+
+        boolean overlaps = bookingRepo.hasOverlap(
+                item.getId(),
+                List.of(BookingStatus.APPROVED, BookingStatus.WAITING),
+                dto.start().atOffset(ZoneOffset.UTC).toInstant(),
+                dto.end().atOffset(ZoneOffset.UTC).toInstant()
+        );
+        if (overlaps) {
+            throw new BadRequestException("booking time overlaps with existing booking");
         }
 
         Booking saved = bookingRepo.save(BookingMapper.toEntity(dto, item, booker));
@@ -93,12 +103,16 @@ public class BookingServiceImpl implements BookingService {
         Instant now = Instant.now();
 
         List<Booking> data = switch (state) {
-            case ALL      -> bookingRepo.findByBooker_IdOrderByStartDesc(userId, page);
-            case CURRENT  -> bookingRepo.findByBooker_IdAndStartBeforeAndEndAfterOrderByStartDesc(userId, now, now, page);
-            case PAST     -> bookingRepo.findByBooker_IdAndEndBeforeOrderByStartDesc(userId, now, page);
-            case FUTURE   -> bookingRepo.findByBooker_IdAndStartAfterOrderByStartDesc(userId, now, page);
-            case WAITING  -> bookingRepo.findByBooker_IdAndStatusOrderByStartDesc(userId, BookingStatus.WAITING, page);
-            case REJECTED -> bookingRepo.findByBooker_IdAndStatusOrderByStartDesc(userId, BookingStatus.REJECTED, page);
+            case ALL     -> bookingRepo.findByBooker_IdOrderByStartDesc(userId, page);
+            case CURRENT -> bookingRepo.findByBooker_IdAndStartBeforeAndEndAfterOrderByStartDesc(userId, now, now, page);
+            case PAST    -> bookingRepo.findByBooker_IdAndEndBeforeOrderByStartDesc(userId, now, page);
+            case FUTURE  -> bookingRepo.findByBooker_IdAndStartAfterOrderByStartDesc(userId, now, page);
+            case WAITING, REJECTED ->
+                    bookingRepo.findByBooker_IdAndStatusOrderByStartDesc(
+                            userId,
+                            state == BookingStateParam.WAITING ? BookingStatus.WAITING : BookingStatus.REJECTED,
+                            page
+                    );
         };
         return data.stream().map(BookingMapper::toResponse).toList();
     }
@@ -110,12 +124,16 @@ public class BookingServiceImpl implements BookingService {
         Instant now = Instant.now();
 
         List<Booking> data = switch (state) {
-            case ALL      -> bookingRepo.findAllByOwner(ownerId, page);
-            case CURRENT  -> bookingRepo.findCurrentByOwner(ownerId, now, page);
-            case PAST     -> bookingRepo.findPastByOwner(ownerId, now, page);
-            case FUTURE   -> bookingRepo.findFutureByOwner(ownerId, now, page);
-            case WAITING  -> bookingRepo.findByOwnerAndStatus(ownerId, BookingStatus.WAITING, page);
-            case REJECTED -> bookingRepo.findByOwnerAndStatus(ownerId, BookingStatus.REJECTED, page);
+            case ALL     -> bookingRepo.findByItem_Owner_IdOrderByStartDesc(ownerId, page);
+            case CURRENT -> bookingRepo.findByItem_Owner_IdAndStartBeforeAndEndAfterOrderByStartDesc(ownerId, now, now, page);
+            case PAST    -> bookingRepo.findByItem_Owner_IdAndEndBeforeOrderByStartDesc(ownerId, now, page);
+            case FUTURE  -> bookingRepo.findByItem_Owner_IdAndStartAfterOrderByStartDesc(ownerId, now, page);
+            case WAITING, REJECTED ->
+                    bookingRepo.findByItem_Owner_IdAndStatusOrderByStartDesc(
+                            ownerId,
+                            state == BookingStateParam.WAITING ? BookingStatus.WAITING : BookingStatus.REJECTED,
+                            page
+                    );
         };
         return data.stream().map(BookingMapper::toResponse).toList();
     }

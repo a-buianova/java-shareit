@@ -18,11 +18,12 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Integration tests for ItemRequestRepository derived queries (H2, PostgreSQL mode). */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@DisplayName("ItemRequestRepository: queries & ordering")
-class ItemRequestRepositoryTest {
+@DisplayName("ItemRequestRepositoryIT")
+class ItemRequestRepositoryIT {
 
     @Autowired ItemRequestRepository repo;
     @Autowired UserRepository userRepo;
@@ -40,7 +41,7 @@ class ItemRequestRepositoryTest {
         u1 = a.getId();
         u2 = b.getId();
 
-        Instant t0 = Instant.now();
+        Instant t0 = Instant.parse("2030-01-01T12:00:00Z");
         Instant t1 = t0.plusSeconds(1);
         Instant t2 = t1.plusSeconds(1);
         Instant t3 = t2.plusSeconds(1);
@@ -48,14 +49,13 @@ class ItemRequestRepositoryTest {
 
         repo.save(ItemRequest.builder().description("first-u1").requestor(a).created(t0).build());
         repo.save(ItemRequest.builder().description("second-u1").requestor(a).created(t1).build());
-
         repo.save(ItemRequest.builder().description("r1-u2").requestor(b).created(t2).build());
         repo.save(ItemRequest.builder().description("r2-u2").requestor(b).created(t3).build());
         repo.save(ItemRequest.builder().description("r3-u2").requestor(b).created(t4).build());
     }
 
     @Test
-    @DisplayName("findByRequestor_IdOrderByCreatedDesc — только свои, по created DESC")
+    @DisplayName("findByRequestor_IdOrderByCreatedDesc — own only, DESC")
     void own_desc() {
         List<ItemRequest> list = repo.findByRequestor_IdOrderByCreatedDesc(u1);
         assertThat(list).hasSize(2);
@@ -64,7 +64,7 @@ class ItemRequestRepositoryTest {
     }
 
     @Test
-    @DisplayName("findByRequestor_IdNotOrderByCreatedDesc(page) — исключает свои и постранично")
+    @DisplayName("findByRequestor_IdNotOrderByCreatedDesc — excludes own, paged")
     void others_paged() {
         var page0 = repo.findByRequestor_IdNotOrderByCreatedDesc(u1, PageRequest.of(0, 2));
         assertThat(page0).hasSize(2);

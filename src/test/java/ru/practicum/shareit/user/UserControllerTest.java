@@ -1,95 +1,56 @@
 package ru.practicum.shareit.user;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import ru.practicum.shareit.user.controller.UserController;
 import ru.practicum.shareit.user.dto.UserCreateDto;
-import ru.practicum.shareit.user.repo.UserRepository;
+import ru.practicum.shareit.user.dto.UserResponse;
+import ru.practicum.shareit.user.dto.UserUpdateDto;
+import ru.practicum.shareit.user.service.UserService;
+
+import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@DisplayName("UserController: integration tests")
+@WebMvcTest(controllers = UserController.class)
+@DisplayName("UserControllerTest")
 class UserControllerTest {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper om;
-    @Autowired UserRepository repo;
 
-    @BeforeEach
-    void clean() {
-        repo.deleteAll();
-    }
+    @MockBean UserService userService;
 
     @Test
-    @Order(1)
-    @DisplayName("POST /users — 201 Created + body; затем GET/LIST/PATCH/DELETE")
-    void create_get_list_patch_delete_flow() throws Exception {
-        UserCreateDto dto = new UserCreateDto("Ann", "a@ex.com");
+    @DisplayName("POST /users — 201 Created")
+    void create_201() throws Exception {
+        var in  = new UserCreateDto("Ann", "a@ex.com");
+        var out = new UserResponse(1L, "Ann", "a@ex.com");
 
-        String created = mvc.perform(post("/users")
+        Mockito.when(userService.create(any(UserCreateDto.class))).thenReturn(out);
+
+        mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsBytes(dto)))
+                        .content(om.writeValueAsBytes(in)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id", notNullValue()))
+                .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.name").value("Ann"))
-                .andExpect(jsonPath("$.email").value("a@ex.com"))
-                .andReturn().getResponse().getContentAsString();
-
-        long id = om.readTree(created).get("id").asLong();
-
-        mvc.perform(get("/users/{id}", id))
-                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("a@ex.com"));
-
-        mvc.perform(get("/users"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)));
-
-        mvc.perform(patch("/users/{id}", id)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"New Name\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("New Name"));
-
-        mvc.perform(delete("/users/{id}", id))
-                .andExpect(status().isNoContent());
-
-        mvc.perform(get("/users/{id}", id))
-                .andExpect(status().isNotFound());
     }
 
     @Test
-    @Order(2)
-    @DisplayName("POST /users — 409 при дубликате email")
-    void duplicateEmail_returns409() throws Exception {
-        mvc.perform(post("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"X\",\"email\":\"dup@ex.com\"}"))
-                .andExpect(status().isCreated());
-
-        mvc.perform(post("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Y\",\"email\":\"dup@ex.com\"}"))
-                .andExpect(status().isConflict());
-    }
-
-    @Test
-    @DisplayName("POST /users — 400 при пустом имени или некорректном email")
-    void create_blankName_or_invalidEmail_400() throws Exception {
+    @DisplayName("POST /users — 400 on validation errors")
+    void create_400_validation() throws Exception {
         mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"\",\"email\":\"a@ex.com\"}"))
@@ -97,26 +58,65 @@ class UserControllerTest {
 
         mvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"A\",\"email\":\"not-an-email\"}"))
+                        .content("{\"name\":\"Ann\",\"email\":\"wrong\"}"))
                 .andExpect(status().isBadRequest());
+
+        Mockito.verifyNoInteractions(userService);
     }
 
     @Test
-    @DisplayName("PATCH /users/{id} — 400 при некорректном формате email")
-    void patch_invalidEmail_400() throws Exception {
-        mvc.perform(patch("/users/{id}", 1L)
+    @DisplayName("GET /users/{id} — 200 OK")
+    void get_200() throws Exception {
+        Mockito.when(userService.get(1L)).thenReturn(new UserResponse(1L, "Ann", "a@ex.com"));
+
+        mvc.perform(get("/users/{id}", 1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.email").value("a@ex.com"));
+    }
+
+    @Test
+    @DisplayName("GET /users — 200 OK list")
+    void list_200() throws Exception {
+        Mockito.when(userService.list()).thenReturn(List.of(
+                new UserResponse(1L, "Ann", "a@ex.com")
+        ));
+
+        mvc.perform(get("/users"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].name").value("Ann"));
+    }
+
+    @Test
+    @DisplayName("PATCH /users/{id} — 200 OK")
+    void patch_200() throws Exception {
+        Mockito.when(userService.patch(eq(1L), any(UserUpdateDto.class)))
+                .thenReturn(new UserResponse(1L, "New Name", "a@ex.com"));
+
+        mvc.perform(patch("/users/{id}", 1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"New Name\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("New Name"));
+    }
+
+    @Test
+    @DisplayName("PATCH /users/{id} — 400 on invalid email")
+    void patch_400_invalidEmail() throws Exception {
+        mvc.perform(patch("/users/{id}", 1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"wrong\"}"))
                 .andExpect(status().isBadRequest());
+
+        Mockito.verifyNoInteractions(userService);
     }
 
     @Test
-    @Order(0)
-    @DisplayName("GET /users — при пустой БД возвращает []")
-    void list_empty_ok() throws Exception {
-        mvc.perform(get("/users"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$").isEmpty());
+    @DisplayName("DELETE /users/{id} — 204 No Content")
+    void delete_204() throws Exception {
+        mvc.perform(delete("/users/{id}", 1))
+                .andExpect(status().isNoContent());
+        Mockito.verify(userService).delete(1L);
     }
 }

@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("Comments: integration tests")
-class CommentControllerIT {
+class ItemControllerCommentIT {
 
     private static final String USER_HEADER = "X-Sharer-User-Id";
 
