@@ -1,9 +1,10 @@
 package ru.practicum.shareit.user.model;
 
+import jakarta.persistence.*;
 import lombok.*;
 
 /**
- * Domain model for a user.
+ * JPA entity for application users.
  */
 @Getter
 @Setter
@@ -12,15 +13,18 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public final class User {
+@Entity
+@Table(name = "users")
+public class User {
 
-    /** Surrogate primary key. */
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
 
-    /** Display name of the user. */
+    @Column(nullable = false, length = 255)
     private String name;
 
-    /** Email (must be unique, case-insensitive). */
+    @Column(nullable = false, unique = true, length = 255)
     private String email;
 }

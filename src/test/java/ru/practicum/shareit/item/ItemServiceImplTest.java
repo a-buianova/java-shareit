@@ -1,159 +1,167 @@
 package ru.practicum.shareit.item;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import ru.practicum.shareit.common.exception.ForbiddenException;
 import ru.practicum.shareit.common.exception.NotFoundException;
 import ru.practicum.shareit.item.dto.ItemCreateDto;
 import ru.practicum.shareit.item.dto.ItemResponse;
 import ru.practicum.shareit.item.dto.ItemUpdateDto;
+import ru.practicum.shareit.item.dto.ItemDetailsResponse;
 import ru.practicum.shareit.item.mapper.ItemMapper;
-import ru.practicum.shareit.item.repo.InMemoryItemRepository;
-import ru.practicum.shareit.item.service.ItemService;
+import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.item.repo.ItemRepository;
+import ru.practicum.shareit.item.repo.CommentRepository;
+import ru.practicum.shareit.booking.repo.BookingRepository;
 import ru.practicum.shareit.item.service.ItemServiceImpl;
+import ru.practicum.shareit.request.model.ItemRequest;
 import ru.practicum.shareit.user.model.User;
-import ru.practicum.shareit.user.repo.InMemoryUserRepository;
+import ru.practicum.shareit.user.repo.UserRepository;
 
 import java.util.List;
+import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for {@link ItemServiceImpl} using in-memory repositories.
- */
-@DisplayName("ItemServiceImpl: unit tests (in-memory)")
+@ExtendWith(MockitoExtension.class)
+@DisplayName("ItemServiceImpl: business rules")
 class ItemServiceImplTest {
 
-    private static final String DRILL = "Drill";
-    private static final String DESC_600W = "600W";
-    private static final String OWNER_EMAIL = "u@mail.com";
+    @Mock ItemRepository itemRepo;
+    @Mock UserRepository userRepo;
+    @Mock ItemMapper mapper;
+    @Mock BookingRepository bookingRepo;
+    @Mock CommentRepository commentRepo;
 
-    private InMemoryItemRepository itemRepo;
-    private InMemoryUserRepository userRepo;
-    private ItemMapper mapper;
-    private ItemService service;
-    private Long existingOwnerId;
+    @InjectMocks ItemServiceImpl service;
 
-    @BeforeEach
-    void setUp() {
-        itemRepo = new InMemoryItemRepository();
-        userRepo = new InMemoryUserRepository();
-        mapper = new ItemMapper(); // manual mapper (no MapStruct)
-        service = new ItemServiceImpl(itemRepo, userRepo, mapper);
+    @Test
+    @DisplayName("create(): OK — owner exists, entity mapped & saved")
+    void create_ok() {
+        long ownerId = 10L;
+        var dto = new ItemCreateDto("Drill", "600W", true, null);
+        var owner = User.builder().id(ownerId).build();
+        var entity = Item.builder().name("Drill").description("600W").available(true).owner(owner).build();
+        var saved = Item.builder().id(100L).name("Drill").description("600W").available(true).owner(owner).build();
 
-        User owner = User.builder()
-                .name("Owner")
-                .email(OWNER_EMAIL)
-                .build();
-        userRepo.save(owner);
-        existingOwnerId = owner.getId();
+        when(userRepo.findById(ownerId)).thenReturn(Optional.of(owner));
+        when(mapper.toEntity(eq(dto), eq(owner), isNull(ItemRequest.class))).thenReturn(entity);
+        when(itemRepo.save(entity)).thenReturn(saved);
+        when(mapper.toResponse(saved)).thenReturn(new ItemResponse(100L, "Drill", "600W", true));
+
+        ItemResponse r = service.create(ownerId, dto);
+
+        assertThat(r.id()).isEqualTo(100L);
+        verify(itemRepo).save(entity);
     }
 
     @Test
-    @DisplayName("create(): throws 404 when owner does not exist")
-    void create_ownerNotFound_throwsNotFound() {
-        NotFoundException ex = assertThrows(
-                NotFoundException.class,
-                () -> service.create(999_999L, new ItemCreateDto(DRILL, DESC_600W, true, null)),
-                "Expected 404-like exception if owner is absent"
+    @DisplayName("create(): owner not found -> 404")
+    void create_owner_not_found() {
+        when(userRepo.findById(1L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.create(1L, new ItemCreateDto("n","d", true, null)))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("get(): 404 when item missing")
+    void get_not_found() {
+        when(itemRepo.findById(999L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.get(1L, 999L))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("listOwnerItems(): returns mapped details DTOs")
+    void listOwnerItems() {
+        var owner = User.builder().id(1L).build();
+        var items = List.of(
+                Item.builder().id(1L).name("A").owner(owner).available(true).build(),
+                Item.builder().id(2L).name("B").owner(owner).available(true).build()
         );
-        assertEquals("owner not found", ex.getMessage());
+        when(userRepo.existsById(1L)).thenReturn(true);
+        when(itemRepo.findAllByOwner_IdOrderByIdAsc(1L)).thenReturn(items);
+
+        when(mapper.toDetails(eq(items.get(0)), isNull(), isNull(), anyList()))
+                .thenReturn(new ItemDetailsResponse(1L, "A", null, true, null, null, List.of()));
+        when(mapper.toDetails(eq(items.get(1)), isNull(), isNull(), anyList()))
+                .thenReturn(new ItemDetailsResponse(2L, "B", null, true, null, null, List.of()));
+
+        var resp = service.listOwnerItems(1L);
+        assertThat(resp).extracting(ItemDetailsResponse::id).containsExactly(1L, 2L);
     }
 
     @Test
-    @DisplayName("create() + get() + listOwner(): happy path")
-    void create_get_listOwner_success() {
-        ItemResponse created = service.create(existingOwnerId, new ItemCreateDto(DRILL, DESC_600W, true, null));
-        ItemResponse fetched = service.get(created.id());
-        List<ItemResponse> ownerItems = service.listOwnerItems(existingOwnerId);
+    @DisplayName("patch(): forbidden for non-owner")
+    void patch_forbidden_for_non_owner() {
+        var owner = User.builder().id(1L).build();
+        var stranger = 99L;
+        var item = Item.builder().id(10L).name("A").description("B").available(true).owner(owner).build();
 
-        assertAll(
-                () -> assertNotNull(created.id(), "ID must be assigned"),
-                () -> assertEquals(DRILL, fetched.name(), "get() must return created item"),
-                () -> assertEquals(1, ownerItems.size(), "Owner must have exactly one item"),
-                () -> assertEquals(created.id(), ownerItems.get(0).id(), "Same item expected")
-        );
+        when(itemRepo.findById(10L)).thenReturn(Optional.of(item));
+
+        assertThatThrownBy(() -> service.patch(stranger, 10L, new ItemUpdateDto("x", null, null)))
+                .isInstanceOf(ForbiddenException.class);
     }
 
     @Test
-    @DisplayName("patch(): returns 403 when caller is not the owner")
-    void patch_notOwner_forbidden() {
-        User intruder = User.builder()
-                .name("Intruder")
-                .email("intruder@ex.com")
-                .build();
-        userRepo.save(intruder);
-        Long intruderId = intruder.getId();
+    @DisplayName("patch(): applies only non-null fields and saves")
+    void patch_ok_partial_update() {
+        var owner = User.builder().id(1L).build();
+        var item = Item.builder().id(10L).name("A").description("B").available(true).owner(owner).build();
+        var dto = new ItemUpdateDto(null, "New desc", false);
 
-        ItemResponse created = service.create(existingOwnerId, new ItemCreateDto(DRILL, DESC_600W, true, null));
+        when(itemRepo.findById(10L)).thenReturn(Optional.of(item));
+        doAnswer(inv -> {
+            Item target = inv.getArgument(0);
+            ItemUpdateDto d = inv.getArgument(1);
+            if (d.name() != null) target.setName(d.name());
+            if (d.description() != null) target.setDescription(d.description());
+            if (d.available() != null) target.setAvailable(d.available());
+            return null;
+        }).when(mapper).patch(any(Item.class), eq(dto));
 
-        ForbiddenException ex = assertThrows(
-                ForbiddenException.class,
-                () -> service.patch(intruderId, created.id(), new ItemUpdateDto("Hack", null, null)),
-                "Only owner is allowed to patch the item"
-        );
-        assertEquals("forbidden: not an owner", ex.getMessage());
+        when(itemRepo.save(any(Item.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(Item.class))).thenAnswer(inv -> {
+            Item it = inv.getArgument(0);
+            return new ItemResponse(it.getId(), it.getName(), it.getDescription(), it.isAvailable());
+        });
+
+        ItemResponse r = service.patch(1L, 10L, dto);
+
+        assertThat(r.description()).isEqualTo("New desc");
+        assertThat(r.available()).isFalse();
+
+        ArgumentCaptor<Item> cap = ArgumentCaptor.forClass(Item.class);
+        verify(itemRepo).save(cap.capture());
+        assertThat(cap.getValue().getDescription()).isEqualTo("New desc");
+        assertThat(cap.getValue().isAvailable()).isFalse();
     }
 
     @Test
-    @DisplayName("patch(): updates only non-null fields (partial update)")
-    void patch_partialUpdate_success() {
-        ItemResponse created = service.create(existingOwnerId, new ItemCreateDto(DRILL, DESC_600W, true, null));
-
-        ItemUpdateDto patch = new ItemUpdateDto(null, "Updated description", null);
-        ItemResponse updated = service.patch(existingOwnerId, created.id(), patch);
-
-        assertAll(
-                () -> assertEquals(DRILL, updated.name(), "Name must stay unchanged"),
-                () -> assertEquals("Updated description", updated.description(), "Description must be updated"),
-                () -> assertTrue(updated.available(), "Availability must stay unchanged (true)")
-        );
+    @DisplayName("search(): null or blank -> empty list")
+    void search_null_or_blank_returns_empty() {
+        assertThat(service.search(null)).isEmpty();
+        assertThat(service.search("   ")).isEmpty();
+        verifyNoInteractions(itemRepo, mapper);
     }
 
     @Test
-    @DisplayName("search(): blank or null -> empty; filters out unavailable items; case-insensitive")
-    void search_blankAndCaseInsensitive_andFiltersUnavailable() {
-        service.create(existingOwnerId, new ItemCreateDto("Drill", "Hammer mode", true, null));
-        service.create(existingOwnerId, new ItemCreateDto("Old DRILL", "Broken", false, null));
+    @DisplayName("search(): non-blank -> delegates to repository and maps")
+    void search_non_blank_delegates() {
+        when(itemRepo.searchAvailable("drill")).thenReturn(List.of(
+                Item.builder().id(1L).name("Drill").available(true).build()
+        ));
+        when(mapper.toResponse(any(Item.class))).thenReturn(new ItemResponse(1L, "Drill", null, true));
 
-        assertTrue(service.search("   ").isEmpty(), "Blank query must return empty list");
-        assertTrue(service.search(null).isEmpty(), "Null query must return empty list");
-
-        List<ItemResponse> res = service.search("drill");
-
-        assertAll(
-                () -> assertEquals(1, res.size(), "Only available items must be returned"),
-                () -> assertEquals("Drill", res.get(0).name(), "Must match available item, case-insensitive")
-        );
-    }
-
-    @Test
-    @DisplayName("get(): throws 404 when item not found")
-    void get_notFound_throws404() {
-        NotFoundException ex = assertThrows(
-                NotFoundException.class,
-                () -> service.get(123456L),
-                "Expected 404-like exception for absent item"
-        );
-        assertEquals("item not found", ex.getMessage());
-    }
-
-    @Test
-    @DisplayName("patch(): throws 404 when item not found")
-    void patch_itemNotFound_throws404() {
-        NotFoundException ex = assertThrows(
-                NotFoundException.class,
-                () -> service.patch(existingOwnerId, 999999L, new ItemUpdateDto("X", "Y", true)),
-                "Expected 404-like exception for absent item"
-        );
-        assertEquals("item not found", ex.getMessage());
-    }
-
-    @Test
-    @DisplayName("listOwnerItems(): returns empty list when owner has no items")
-    void listOwnerItems_emptyForOwner() {
-        List<ItemResponse> items = service.listOwnerItems(existingOwnerId);
-        assertTrue(items.isEmpty(), "Owner without items must get empty list");
+        var out = service.search("drill");
+        assertThat(out).hasSize(1);
+        assertThat(out.get(0).name()).isEqualTo("Drill");
     }
 }

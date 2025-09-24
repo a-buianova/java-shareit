@@ -10,6 +10,7 @@ import java.util.List;
 /**
  * @apiNote Registers custom MVC infrastructure (argument resolvers).
  */
+
 @Configuration
 @RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
