@@ -40,7 +40,7 @@ class BookingControllerTest {
     @MockBean BookingService bookingService;
 
     @Test
-    @DisplayName("POST /bookings — 201, тело ответа замаплено")
+    @DisplayName("POST /bookings — 201 Created, response body mapped")
     void create_201_mapsBody() throws Exception {
         var dto = new BookingCreateDto(10L,
                 LocalDateTime.now().plusDays(1),
@@ -69,7 +69,7 @@ class BookingControllerTest {
     }
 
     @Test
-    @DisplayName("PATCH /bookings/{id}?approved=... — маппинг approved и заголовка")
+    @DisplayName("PATCH /bookings/{id}?approved=... — maps 'approved' param and header")
     void approve_ok() throws Exception {
         var resp = new BookingResponse(
                 1L,
@@ -90,7 +90,7 @@ class BookingControllerTest {
     }
 
     @Test
-    @DisplayName("Без X-Sharer-User-Id → 400 от аргумент-резолвера")
+    @DisplayName("Missing X-Sharer-User-Id → 400 from argument resolver")
     void missingHeader_400() throws Exception {
         mvc.perform(get("/bookings/1"))
                 .andExpect(status().isBadRequest())
@@ -99,7 +99,7 @@ class BookingControllerTest {
     }
 
     @Test
-    @DisplayName("Неверный state → 400 (до сервиса не доходит)")
+    @DisplayName("Invalid state param → 400 (service not invoked)")
     void bad_state_400() throws Exception {
         mvc.perform(get("/bookings")
                         .param("state", "UNKNOWN")

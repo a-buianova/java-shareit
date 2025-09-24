@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** WebMvc slice tests for {@link ItemRequestController}. */
 @WebMvcTest(controllers = ItemRequestController.class)
 @Import({WebConfig.class, UserIdArgumentResolver.class})
-@DisplayName("ItemRequestControllerTest")
+@DisplayName("ItemRequestControllerTest (WebMvc slice)")
 class ItemRequestControllerTest {
 
     private static final String HDR = "X-Sharer-User-Id";
@@ -65,7 +65,7 @@ class ItemRequestControllerTest {
     }
 
     @Test
-    @DisplayName("POST /requests — 400 Bad Request on blank description")
+    @DisplayName("POST /requests — 400 when description is blank")
     void create_400_validation() throws Exception {
         mvc.perform(post("/requests")
                         .header(HDR, 7)
@@ -76,7 +76,7 @@ class ItemRequestControllerTest {
     }
 
     @Test
-    @DisplayName("GET /requests — 200 OK with own requests")
+    @DisplayName("GET /requests — returns user's requests")
     void findOwn_ok() throws Exception {
         var r1 = new ItemRequestResponse(1L, "A", 7L, Instant.now(), List.of());
         var r2 = new ItemRequestResponse(2L, "B", 7L, Instant.now(), List.of());
@@ -90,7 +90,7 @@ class ItemRequestControllerTest {
     }
 
     @Test
-    @DisplayName("GET /requests/all — 200 OK with pagination")
+    @DisplayName("GET /requests/all — returns paged list")
     void findAllExceptUser_ok() throws Exception {
         Mockito.when(service.findAllExceptUser(eq(7L), eq(0), eq(2)))
                 .thenReturn(List.of(
@@ -107,15 +107,19 @@ class ItemRequestControllerTest {
     }
 
     @Test
-    @DisplayName("GET /requests/{id} — 200 OK and 404 Not Found")
-    void getById_ok_and_404() throws Exception {
+    @DisplayName("GET /requests/{id} — 200 OK")
+    void getById_ok() throws Exception {
         Mockito.when(service.getById(7L, 55L))
                 .thenReturn(new ItemRequestResponse(55L, "one", 8L, Instant.now(), List.of()));
 
         mvc.perform(get("/requests/{id}", 55).header(HDR, 7))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(55));
+    }
 
+    @Test
+    @DisplayName("GET /requests/{id} — 404 Not Found")
+    void getById_404() throws Exception {
         Mockito.when(service.getById(7L, 9999L))
                 .thenThrow(new ru.practicum.shareit.common.exception.NotFoundException("not found"));
 
@@ -124,12 +128,30 @@ class ItemRequestControllerTest {
     }
 
     @Test
-    @DisplayName("Missing X-Sharer-User-Id — 400 Bad Request")
-    void missingHeader_400() throws Exception {
+    @DisplayName("POST /requests — 400 when header is missing")
+    void missingHeader_create_400() throws Exception {
         mvc.perform(post("/requests").contentType(MediaType.APPLICATION_JSON).content("{\"description\":\"x\"}"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(get("/requests")).andExpect(status().isBadRequest());
-        mvc.perform(get("/requests/all").param("from", "0").param("size", "10")).andExpect(status().isBadRequest());
-        mvc.perform(get("/requests/{id}", 1L)).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /requests — 400 when header is missing")
+    void missingHeader_findOwn_400() throws Exception {
+        mvc.perform(get("/requests"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /requests/all — 400 when header is missing")
+    void missingHeader_findAll_400() throws Exception {
+        mvc.perform(get("/requests/all").param("from", "0").param("size", "10"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /requests/{id} — 400 when header is missing")
+    void missingHeader_getById_400() throws Exception {
+        mvc.perform(get("/requests/{id}", 1L))
+                .andExpect(status().isBadRequest());
     }
 }

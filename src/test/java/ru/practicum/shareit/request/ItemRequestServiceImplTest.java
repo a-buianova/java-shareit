@@ -39,7 +39,7 @@ class ItemRequestServiceImplTest {
     @InjectMocks ItemRequestServiceImpl service;
 
     @Test
-    @DisplayName("create(): 404 если пользователь не найден")
+    @DisplayName("create(): 404 when user not found")
     void create_user_not_found() {
         when(userRepo.findById(1L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.create(1L, new ItemRequestCreateDto("x")))
@@ -47,7 +47,7 @@ class ItemRequestServiceImplTest {
     }
 
     @Test
-    @DisplayName("create(): OK — маппинг + сохранение + toResponse(..., emptyItems)")
+    @DisplayName("create(): OK — maps, saves, returns response with empty items")
     void create_ok() {
         var user   = User.builder().id(1L).build();
         var dto    = new ItemRequestCreateDto("Need");
@@ -69,7 +69,7 @@ class ItemRequestServiceImplTest {
         when(mapper.toEntity(dto, user)).thenReturn(entity);
         when(reqRepo.save(entity)).thenReturn(saved);
 
-        Instant created = saved.getCreated(); // уже Instant
+        Instant created = saved.getCreated();
         when(mapper.toResponse(eq(saved), eq(List.of())))
                 .thenReturn(new ItemRequestResponse(10L, "Need", 1L, created, List.of()));
         var r = service.create(1L, dto);
@@ -80,7 +80,7 @@ class ItemRequestServiceImplTest {
     }
 
     @Test
-    @DisplayName("findOwn(): проверяет existence пользователя, грузит свои запросы и прикладывает items")
+    @DisplayName("findOwn(): checks user existence, loads items, maps")
     void findOwn_ok() {
         when(userRepo.existsById(1L)).thenReturn(true);
 
@@ -102,7 +102,7 @@ class ItemRequestServiceImplTest {
     }
 
     @Test
-    @DisplayName("findAllExceptUser(): исключает userId, пагинация, и прикладывает items")
+    @DisplayName("findAllExceptUser(): excludes userId, paginates, maps")
     void findAllExceptUser_ok() {
         when(userRepo.existsById(1L)).thenReturn(true);
 
@@ -122,7 +122,7 @@ class ItemRequestServiceImplTest {
     }
 
     @Test
-    @DisplayName("getById(): 404 если запрос не найден")
+    @DisplayName("getById(): 404 when request not found")
     void getById_not_found() {
         when(userRepo.existsById(1L)).thenReturn(true);
         when(reqRepo.findById(999L)).thenReturn(Optional.empty());
@@ -130,7 +130,7 @@ class ItemRequestServiceImplTest {
     }
 
     @Test
-    @DisplayName("getById(): OK — найдёт запрос, подложит items и смаппит")
+    @DisplayName("getById(): OK — loads items and maps")
     void getById_ok() {
         when(userRepo.existsById(1L)).thenReturn(true);
 

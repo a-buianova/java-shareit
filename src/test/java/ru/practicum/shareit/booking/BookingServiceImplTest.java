@@ -148,11 +148,11 @@ class BookingServiceImplTest {
     }
 
     @Test
-    @DisplayName("approve(): only owner; WAITING -> APPROVED/REJECTED")
-    void approve_ok() {
+    @DisplayName("approve(true): owner changes status from WAITING to APPROVED")
+    void approve_true_ok() {
         long ownerId = 1L;
         var owner = User.builder().id(ownerId).build();
-        var item = Item.builder().id(5L).owner(owner).build();
+        var item  = Item.builder().id(5L).owner(owner).build();
         var booking = Booking.builder()
                 .id(100L).item(item)
                 .booker(User.builder().id(10L).build())
@@ -162,12 +162,27 @@ class BookingServiceImplTest {
         when(bookingRepo.findById(100L)).thenReturn(Optional.of(booking));
         when(bookingRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var r1 = service.approve(ownerId, 100L, true);
-        assertThat(r1.status()).isEqualTo("APPROVED");
+        var r = service.approve(ownerId, 100L, true);
+        assertThat(r.status()).isEqualTo("APPROVED");
+    }
 
-        booking.setStatus(BookingStatus.WAITING);
-        var r2 = service.approve(ownerId, 100L, false);
-        assertThat(r2.status()).isEqualTo("REJECTED");
+    @Test
+    @DisplayName("approve(false): owner changes status from WAITING to REJECTED")
+    void approve_false_ok() {
+        long ownerId = 1L;
+        var owner = User.builder().id(ownerId).build();
+        var item  = Item.builder().id(5L).owner(owner).build();
+        var booking = Booking.builder()
+                .id(100L).item(item)
+                .booker(User.builder().id(10L).build())
+                .status(BookingStatus.WAITING)
+                .build();
+
+        when(bookingRepo.findById(100L)).thenReturn(Optional.of(booking));
+        when(bookingRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var r = service.approve(ownerId, 100L, false);
+        assertThat(r.status()).isEqualTo("REJECTED");
     }
 
     @Test
@@ -215,11 +230,27 @@ class BookingServiceImplTest {
     }
 
     @Test
-    @DisplayName("get(): only owner/booker, otherwise 404")
-    void get_access() {
+    @DisplayName("get(): owner can view booking")
+    void get_owner_ok() {
+        var owner = User.builder().id(1L).build();
+        var item  = Item.builder().id(5L).owner(owner).build();
+        var booking = Booking.builder()
+                .id(100L).item(item)
+                .booker(User.builder().id(2L).build())
+                .status(BookingStatus.WAITING)
+                .build();
+
+        when(bookingRepo.findById(100L)).thenReturn(Optional.of(booking));
+
+        assertThat(service.get(1L, 100L)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("get(): booker can view booking")
+    void get_booker_ok() {
         var owner = User.builder().id(1L).build();
         var booker = User.builder().id(2L).build();
-        var item = Item.builder().id(5L).owner(owner).build();
+        var item  = Item.builder().id(5L).owner(owner).build();
         var booking = Booking.builder()
                 .id(100L).item(item).booker(booker)
                 .status(BookingStatus.WAITING)
@@ -227,8 +258,22 @@ class BookingServiceImplTest {
 
         when(bookingRepo.findById(100L)).thenReturn(Optional.of(booking));
 
-        assertThat(service.get(1L, 100L)).isNotNull();
         assertThat(service.get(2L, 100L)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("get(): stranger gets 404")
+    void get_stranger_404() {
+        var owner = User.builder().id(1L).build();
+        var booker = User.builder().id(2L).build();
+        var item  = Item.builder().id(5L).owner(owner).build();
+        var booking = Booking.builder()
+                .id(100L).item(item).booker(booker)
+                .status(BookingStatus.WAITING)
+                .build();
+
+        when(bookingRepo.findById(100L)).thenReturn(Optional.of(booking));
+
         assertThatThrownBy(() -> service.get(3L, 100L)).isInstanceOf(NotFoundException.class);
     }
 

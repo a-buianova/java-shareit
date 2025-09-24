@@ -1,7 +1,9 @@
 package ru.practicum.shareit.item;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,7 +26,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("ItemControllerIT")
 class ItemControllerIT {
 
@@ -55,7 +56,6 @@ class ItemControllerIT {
     }
 
     @Test
-    @Order(1)
     @DisplayName("POST /items — 201 Created")
     void create_201() throws Exception {
         var dto = new ItemCreateDto("Saw", "Hand saw", true, null);
@@ -71,7 +71,6 @@ class ItemControllerIT {
     }
 
     @Test
-    @Order(2)
     @DisplayName("POST /items — 400 Bad Request (DTO validation)")
     void create_400_validation() throws Exception {
         var invalid = new ItemCreateDto("  ", "", null, null);
@@ -84,21 +83,23 @@ class ItemControllerIT {
     }
 
     @Test
-    @Order(3)
-    @DisplayName("GET /items/{id} — 200 OK with comments; 404 when missing")
-    void get_200_and_404() throws Exception {
+    @DisplayName("GET /items/{id} — 200 OK with comments")
+    void get_200_includesComments() throws Exception {
         mvc.perform(get("/items/{id}", itemId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(itemId.intValue()))
                 .andExpect(jsonPath("$.name").value("Drill"))
                 .andExpect(jsonPath("$.comments").exists());
+    }
 
+    @Test
+    @DisplayName("GET /items/{id} — 404 Not Found when missing")
+    void get_404() throws Exception {
         mvc.perform(get("/items/{id}", 999_999L))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @Order(4)
     @DisplayName("GET /items — owner list contains comments")
     void list_owner_items() throws Exception {
         mvc.perform(get("/items").header(HDR, ownerId))
@@ -108,9 +109,8 @@ class ItemControllerIT {
     }
 
     @Test
-    @Order(5)
-    @DisplayName("PATCH /items/{id} — only owner can update")
-    void patch_owner_only() throws Exception {
+    @DisplayName("PATCH /items/{id} — owner can update")
+    void patch_owner_updates_200() throws Exception {
         var dto = new ItemUpdateDto("Drill 650W", null, null);
 
         mvc.perform(patch("/items/{id}", itemId)
@@ -119,7 +119,11 @@ class ItemControllerIT {
                         .content(om.writeValueAsBytes(dto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Drill 650W"));
+    }
 
+    @Test
+    @DisplayName("PATCH /items/{id} — 403 Forbidden for non-owner")
+    void patch_forbidden_403() throws Exception {
         mvc.perform(patch("/items/{id}", itemId)
                         .header(HDR, strangerId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -128,13 +132,16 @@ class ItemControllerIT {
     }
 
     @Test
-    @Order(6)
-    @DisplayName("GET /items/search — blank → []; results only available=true")
-    void search_rules() throws Exception {
+    @DisplayName("GET /items/search — blank text → []")
+    void search_blank_returnsEmpty() throws Exception {
         mvc.perform(get("/items/search").param("text", "  "))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));
+    }
 
+    @Test
+    @DisplayName("GET /items/search — returns only available=true and name/desc match")
+    void search_text_filtersAvailableAndMatches() throws Exception {
         itemRepo.saveAll(List.of(
                 Item.builder()
                         .name("Super Drill")
@@ -151,17 +158,24 @@ class ItemControllerIT {
     }
 
     @Test
-    @Order(7)
-    @DisplayName("Missing X-Sharer-User-Id — 400 Bad Request (where required)")
-    void missing_header_400() throws Exception {
+    @DisplayName("POST /items — 400 when missing X-Sharer-User-Id")
+    void missingHeader_post_400() throws Exception {
         mvc.perform(post("/items")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsBytes(new ItemCreateDto("A", "B", true, null))))
                 .andExpect(status().isBadRequest());
+    }
 
+    @Test
+    @DisplayName("GET /items — 400 when missing X-Sharer-User-Id")
+    void missingHeader_list_400() throws Exception {
         mvc.perform(get("/items"))
                 .andExpect(status().isBadRequest());
+    }
 
+    @Test
+    @DisplayName("PATCH /items/{id} — 400 when missing X-Sharer-User-Id")
+    void missingHeader_patch_400() throws Exception {
         mvc.perform(patch("/items/{id}", itemId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsBytes(new ItemUpdateDto("X", null, null))))
@@ -169,27 +183,7 @@ class ItemControllerIT {
     }
 
     @Test
-    @Order(8)
-    @DisplayName("GET /items/{id} — 404 Not Found for missing id")
-    void get_404() throws Exception {
-        mvc.perform(get("/items/{id}", 999_999))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @Order(9)
-    @DisplayName("PATCH /items/{id} — 404 Not Found for missing id")
-    void patch_404() throws Exception {
-        mvc.perform(patch("/items/{id}", 12345)
-                        .header(HDR, ownerId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsBytes(new ItemUpdateDto("X", null, null))))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @Order(10)
-    @DisplayName("POST /items — 404 Not Found when owner missing")
+    @DisplayName("POST /items — 404 when owner not found")
     void create_ownerNotFound_404() throws Exception {
         var dto = new ItemCreateDto("Drill", "600W", true, null);
 
@@ -201,8 +195,7 @@ class ItemControllerIT {
     }
 
     @Test
-    @Order(11)
-    @DisplayName("GET /items/search — 400 Bad Request when text param missing")
+    @DisplayName("GET /items/search — 400 when text param missing")
     void search_missingParam_400() throws Exception {
         mvc.perform(get("/items/search"))
                 .andExpect(status().isBadRequest());

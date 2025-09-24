@@ -22,8 +22,6 @@ class BookingPaginationValidationMvcTest {
 
     private static final String HDR = "X-Sharer-User-Id";
 
-    // -------- /bookings (booker) --------
-
     @Test
     @DisplayName("GET /bookings: from < 0 -> 400")
     void listUser_fromNegative_400() throws Exception {
@@ -56,8 +54,6 @@ class BookingPaginationValidationMvcTest {
                         .header(HDR, 100))
                 .andExpect(status().isBadRequest());
     }
-
-    // -------- /bookings/owner (owner) --------
 
     @Test
     @DisplayName("GET /bookings/owner: from < 0 -> 400")

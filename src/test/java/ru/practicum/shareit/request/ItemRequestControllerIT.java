@@ -25,7 +25,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("ItemRequestControllerIT")
 class ItemRequestControllerIT {
 
@@ -50,8 +49,7 @@ class ItemRequestControllerIT {
     }
 
     @Test
-    @Order(1)
-    @DisplayName("POST /requests — 201 Created, created timestamp set")
+    @DisplayName("POST /requests — 201 Created, created is set")
     void create_201() throws Exception {
         var dto = new ItemRequestCreateDto("Need a drill");
         Instant before = Instant.now();
@@ -74,8 +72,7 @@ class ItemRequestControllerIT {
     }
 
     @Test
-    @Order(2)
-    @DisplayName("POST /requests — 400 Bad Request on blank description")
+    @DisplayName("POST /requests — 400 when description is blank")
     void create_400_validation() throws Exception {
         mvc.perform(post("/requests")
                         .header(HDR, u1)
@@ -85,13 +82,17 @@ class ItemRequestControllerIT {
     }
 
     @Test
-    @Order(3)
-    @DisplayName("GET /requests — 200 OK, own requests sorted DESC")
+    @DisplayName("GET /requests — returns own requests sorted by created DESC")
     void list_own_desc() throws Exception {
-        reqRepo.save(ItemRequest.builder().description("late").requestor(userRepo.findById(u1).orElseThrow()).build());
-        Thread.sleep(5);
-        reqRepo.save(ItemRequest.builder().description("latest").requestor(userRepo.findById(u1).orElseThrow()).build());
-        reqRepo.save(ItemRequest.builder().description("foreign").requestor(userRepo.findById(u2).orElseThrow()).build());
+        var a = userRepo.findById(u1).orElseThrow();
+
+        reqRepo.save(ItemRequest.builder().description("late").requestor(a)
+                .created(Instant.parse("2030-01-01T00:00:00Z")).build());
+        reqRepo.save(ItemRequest.builder().description("latest").requestor(a)
+                .created(Instant.parse("2030-01-01T00:00:01Z")).build());
+        reqRepo.save(ItemRequest.builder().description("foreign")
+                .requestor(userRepo.findById(u2).orElseThrow())
+                .created(Instant.parse("2030-01-01T00:00:02Z")).build());
 
         mvc.perform(get("/requests").header(HDR, u1))
                 .andExpect(status().isOk())
@@ -101,12 +102,12 @@ class ItemRequestControllerIT {
     }
 
     @Test
-    @Order(4)
-    @DisplayName("GET /requests/all — 200 OK with pagination, excluding own")
+    @DisplayName("GET /requests/all — paginates and excludes own requests")
     void list_all_paged_excluding_own() throws Exception {
-        reqRepo.save(ItemRequest.builder().description("r1").requestor(userRepo.findById(u2).orElseThrow()).build());
-        reqRepo.save(ItemRequest.builder().description("r2").requestor(userRepo.findById(u2).orElseThrow()).build());
-        reqRepo.save(ItemRequest.builder().description("r3").requestor(userRepo.findById(u2).orElseThrow()).build());
+        var b = userRepo.findById(u2).orElseThrow();
+        reqRepo.save(ItemRequest.builder().description("r1").requestor(b).build());
+        reqRepo.save(ItemRequest.builder().description("r2").requestor(b).build());
+        reqRepo.save(ItemRequest.builder().description("r3").requestor(b).build());
         reqRepo.save(ItemRequest.builder().description("mine").requestor(userRepo.findById(u1).orElseThrow()).build());
 
         mvc.perform(get("/requests/all").header(HDR, u1).param("from", "0").param("size", "2"))
@@ -119,27 +120,49 @@ class ItemRequestControllerIT {
     }
 
     @Test
-    @Order(5)
-    @DisplayName("GET /requests/{id} — 200 OK and 404 Not Found")
-    void get_by_id_ok_and_404() throws Exception {
-        var r = reqRepo.save(ItemRequest.builder().description("one").requestor(userRepo.findById(u2).orElseThrow()).build());
+    @DisplayName("GET /requests/{id} — 200 OK for existing")
+    void get_by_id_ok() throws Exception {
+        var r = reqRepo.save(ItemRequest.builder().description("one")
+                .requestor(userRepo.findById(u2).orElseThrow()).build());
 
         mvc.perform(get("/requests/{id}", r.getId()).header(HDR, u1))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.description").value("one"))
                 .andExpect(jsonPath("$.items", hasSize(0)));
+    }
 
+    @Test
+    @DisplayName("GET /requests/{id} — 404 Not Found for missing id")
+    void get_by_id_404() throws Exception {
         mvc.perform(get("/requests/{id}", 9999).header(HDR, u1))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @DisplayName("Missing X-Sharer-User-Id — 400 Bad Request")
-    void missing_header_400() throws Exception {
+    @DisplayName("POST /requests — 400 when header is missing")
+    void missing_header_create_400() throws Exception {
         mvc.perform(post("/requests").contentType(MediaType.APPLICATION_JSON).content("{\"description\":\"x\"}"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(get("/requests")).andExpect(status().isBadRequest());
-        mvc.perform(get("/requests/all").param("from", "0").param("size", "10")).andExpect(status().isBadRequest());
-        mvc.perform(get("/requests/{id}", 1L)).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /requests — 400 when header is missing")
+    void missing_header_findOwn_400() throws Exception {
+        mvc.perform(get("/requests"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /requests/all — 400 when header is missing")
+    void missing_header_findAll_400() throws Exception {
+        mvc.perform(get("/requests/all").param("from", "0").param("size", "10"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /requests/{id} — 400 when header is missing")
+    void missing_header_getById_400() throws Exception {
+        mvc.perform(get("/requests/{id}", 1L))
+                .andExpect(status().isBadRequest());
     }
 }

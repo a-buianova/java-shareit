@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
-@DisplayName("ItemRepository: searchAvailable()")
+@DisplayName("ItemRepositoryIT: searchAvailable()")
 class ItemRepositoryIT {
 
     @Autowired ItemRepository itemRepo;
@@ -52,12 +52,16 @@ class ItemRepositoryIT {
     }
 
     @Test
-    @DisplayName("Ищет по name/description (case-insensitive) и возвращает только available=true")
-    void searchAvailable_ok() {
-        var r1 = itemRepo.searchAvailable("DRILL");
-        assertThat(r1).extracting(Item::getName).containsExactlyInAnyOrder("Drill");
+    @DisplayName("searchAvailable('DRILL') -> finds only available matches by name/description (case-insensitive)")
+    void searchAvailable_drill_onlyAvailable() {
+        var res = itemRepo.searchAvailable("DRILL");
+        assertThat(res).extracting(Item::getName).containsExactlyInAnyOrder("Drill");
+    }
 
-        var r2 = itemRepo.searchAvailable("driver");
-        assertThat(r2).extracting(Item::getName).containsExactlyInAnyOrder("driver");
+    @Test
+    @DisplayName("searchAvailable('driver') -> finds only available matches by name/description (case-insensitive)")
+    void searchAvailable_driver_onlyAvailable() {
+        var res = itemRepo.searchAvailable("driver");
+        assertThat(res).extracting(Item::getName).containsExactlyInAnyOrder("driver");
     }
 }

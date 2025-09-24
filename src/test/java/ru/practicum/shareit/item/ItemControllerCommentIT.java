@@ -1,7 +1,9 @@
 package ru.practicum.shareit.item;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,15 +23,15 @@ import ru.practicum.shareit.user.repo.UserRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
-import static org.hamcrest.Matchers.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("Comments: integration tests")
 class ItemControllerCommentIT {
 
@@ -64,10 +66,8 @@ class ItemControllerCommentIT {
     }
 
     @Test
-    @Order(1)
     @DisplayName("POST /items/{id}/comment — 201 при прошедшем APPROVED бронировании")
-    void create_comment_ok_201() throws Exception {
-        // прошедшая бронь: end < now, APPROVED
+    void create_comment_201() throws Exception {
         Instant now = Instant.now();
         bookingRepo.save(Booking.builder()
                 .item(itemRepo.findById(itemId).orElseThrow())
@@ -92,7 +92,6 @@ class ItemControllerCommentIT {
     }
 
     @Test
-    @Order(2)
     @DisplayName("POST /items/{id}/comment — 400 без права (нет прошедших APPROVED)")
     void create_comment_forbidden_400() throws Exception {
         Instant now = Instant.now();
@@ -112,7 +111,6 @@ class ItemControllerCommentIT {
     }
 
     @Test
-    @Order(3)
     @DisplayName("POST /items/{id}/comment — 400 при будущем бронировании")
     void create_comment_futureBooking_400() throws Exception {
         Instant now = Instant.now();
@@ -132,7 +130,6 @@ class ItemControllerCommentIT {
     }
 
     @Test
-    @Order(4)
     @DisplayName("POST /items/{id}/comment — 400 при пустом тексте")
     void create_comment_validation_400() throws Exception {
         mvc.perform(post("/items/{itemId}/comment", itemId)
@@ -143,7 +140,15 @@ class ItemControllerCommentIT {
     }
 
     @Test
-    @Order(5)
+    @DisplayName("POST /items/{id}/comment — 400 без X-Sharer-User-Id")
+    void create_comment_missingHeader_400() throws Exception {
+        mvc.perform(post("/items/{itemId}/comment", itemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsBytes(new CommentCreateDto("Hi"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("GET /items/{id} — комментарии возвращаются и отсортированы по created ASC")
     void get_item_contains_comments_sorted() throws Exception {
         Instant now = Instant.now();

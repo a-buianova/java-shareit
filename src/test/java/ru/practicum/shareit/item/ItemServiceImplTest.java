@@ -42,7 +42,7 @@ class ItemServiceImplTest {
     @InjectMocks ItemServiceImpl service;
 
     @Test
-    @DisplayName("create(): OK — владелец существует, маппинг, сохранение")
+    @DisplayName("create(): OK — owner exists, entity mapped & saved")
     void create_ok() {
         long ownerId = 10L;
         var dto = new ItemCreateDto("Drill", "600W", true, null);
@@ -62,7 +62,7 @@ class ItemServiceImplTest {
     }
 
     @Test
-    @DisplayName("create(): владелец не найден -> 404")
+    @DisplayName("create(): owner not found -> 404")
     void create_owner_not_found() {
         when(userRepo.findById(1L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.create(1L, new ItemCreateDto("n","d", true, null)))
@@ -70,7 +70,7 @@ class ItemServiceImplTest {
     }
 
     @Test
-    @DisplayName("get(): 404 если предмета нет")
+    @DisplayName("get(): 404 when item missing")
     void get_not_found() {
         when(itemRepo.findById(999L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.get(1L, 999L))
@@ -78,7 +78,7 @@ class ItemServiceImplTest {
     }
 
     @Test
-    @DisplayName("listOwnerItems(): возвращает маппленные DTO деталей")
+    @DisplayName("listOwnerItems(): returns mapped details DTOs")
     void listOwnerItems() {
         var owner = User.builder().id(1L).build();
         var items = List.of(
@@ -98,7 +98,7 @@ class ItemServiceImplTest {
     }
 
     @Test
-    @DisplayName("patch(): только владелец может править")
+    @DisplayName("patch(): forbidden for non-owner")
     void patch_forbidden_for_non_owner() {
         var owner = User.builder().id(1L).build();
         var stranger = 99L;
@@ -111,7 +111,7 @@ class ItemServiceImplTest {
     }
 
     @Test
-    @DisplayName("patch(): применяет только непустые поля и сохраняет")
+    @DisplayName("patch(): applies only non-null fields and saves")
     void patch_ok_partial_update() {
         var owner = User.builder().id(1L).build();
         var item = Item.builder().id(10L).name("A").description("B").available(true).owner(owner).build();
@@ -145,11 +145,16 @@ class ItemServiceImplTest {
     }
 
     @Test
-    @DisplayName("search(): blank/null -> пустой список, иначе делегирует в репозиторий")
-    void search_rules() {
+    @DisplayName("search(): null or blank -> empty list")
+    void search_null_or_blank_returns_empty() {
         assertThat(service.search(null)).isEmpty();
         assertThat(service.search("   ")).isEmpty();
+        verifyNoInteractions(itemRepo, mapper);
+    }
 
+    @Test
+    @DisplayName("search(): non-blank -> delegates to repository and maps")
+    void search_non_blank_delegates() {
         when(itemRepo.searchAvailable("drill")).thenReturn(List.of(
                 Item.builder().id(1L).name("Drill").available(true).build()
         ));
