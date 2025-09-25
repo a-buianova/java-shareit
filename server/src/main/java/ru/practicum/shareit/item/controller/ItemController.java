@@ -1,6 +1,5 @@
 package ru.practicum.shareit.item.controller;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -22,11 +21,10 @@ public class ItemController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ItemResponse create(@CurrentUserId Long userId,
-                               @RequestBody @Valid ItemCreateDto dto) {
+                               @RequestBody @jakarta.validation.Valid ItemCreateDto dto) {
         return service.create(userId, dto);
     }
 
-    // GET /items/{id} — заголовок НЕ обязателен (нужен для владельца, чтобы показать last/next)
     @GetMapping("/{itemId}")
     public ItemDetailsResponse get(@PathVariable Long itemId,
                                    @RequestHeader(value = USER_HEADER, required = false) Long requesterId) {
@@ -41,7 +39,7 @@ public class ItemController {
     @PatchMapping("/{itemId}")
     public ItemResponse patch(@CurrentUserId Long userId,
                               @PathVariable Long itemId,
-                              @RequestBody @Valid ItemUpdateDto dto) {
+                              @RequestBody @jakarta.validation.Valid ItemUpdateDto dto) {
         return service.patch(userId, itemId, dto);
     }
 
@@ -52,10 +50,10 @@ public class ItemController {
 
     /** POST /items/{itemId}/comment — add a comment (requires a past APPROVED booking). */
     @PostMapping("/{itemId}/comment")
-    @ResponseStatus(HttpStatus.CREATED) // 201 как в коллекции
+    @ResponseStatus(HttpStatus.CREATED)
     public CommentResponse addComment(@CurrentUserId Long userId,
                                       @PathVariable Long itemId,
-                                      @RequestBody @Valid CommentCreateDto dto) {
+                                      @RequestBody @jakarta.validation.Valid CommentCreateDto dto) {
         return service.addComment(userId, itemId, dto);
     }
 }

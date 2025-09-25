@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.stream.Collectors;
@@ -40,6 +42,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpServletRequest req) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(fe -> fe.getField() + ": " +
+                        (StringUtils.hasText(fe.getDefaultMessage()) ? fe.getDefaultMessage() : "invalid"))
+                .collect(Collectors.joining("; "));
+        log.warn("400 {} {} -> {}", req.getMethod(), req.getRequestURI(), message);
+        return body(HttpStatus.BAD_REQUEST, message, req);
+    }
+
+    @ExceptionHandler(BindException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleBindException(BindException ex, HttpServletRequest req) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(fe -> fe.getField() + ": " +
                         (StringUtils.hasText(fe.getDefaultMessage()) ? fe.getDefaultMessage() : "invalid"))
@@ -97,6 +110,18 @@ public class GlobalExceptionHandler {
         String message = StringUtils.hasText(ex.getMessage()) ? ex.getMessage() : "Bad request";
         log.warn("400 {} {} -> {}", req.getMethod(), req.getRequestURI(), message);
         return body(HttpStatus.BAD_REQUEST, message, req);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ErrorResponse handleResponseStatus(ResponseStatusException ex, HttpServletRequest req) {
+        HttpStatus status = ex.getStatusCode() instanceof HttpStatus s ? s : HttpStatus.BAD_REQUEST;
+        String message = StringUtils.hasText(ex.getReason()) ? ex.getReason() : status.getReasonPhrase();
+        if (status.is4xxClientError()) {
+            log.warn("{} {} {} -> {}", status.value(), req.getMethod(), req.getRequestURI(), message);
+        } else {
+            log.error("{} {} {} -> {}", status.value(), req.getMethod(), req.getRequestURI(), message);
+        }
+        return body(status, message, req);
     }
 
     @ExceptionHandler(Exception.class)

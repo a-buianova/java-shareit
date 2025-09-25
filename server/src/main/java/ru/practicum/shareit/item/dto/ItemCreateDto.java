@@ -2,16 +2,14 @@ package ru.practicum.shareit.item.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 /**
  * Create-item request.
  */
 public record ItemCreateDto(
-        @NotBlank(message = "name is required")
-        String name,
-        @NotBlank(message = "description is required")
-        String description,
-        @NotNull(message = "available flag is required")
-        Boolean available,
+        @NotBlank @Size(max = 255) String name,
+        @NotBlank @Size(max = 2000) String description,
+        @NotNull Boolean available,
         Long requestId
 ) {}

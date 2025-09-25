@@ -1,11 +1,7 @@
 package ru.practicum.shareit.booking.controller;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.shareit.booking.dto.BookingCreateDto;
 import ru.practicum.shareit.booking.dto.BookingResponse;
@@ -18,8 +14,8 @@ import java.util.List;
 
 /**
  * REST controller for booking scenarios.
+ * Note: request-body validation lives in the gateway; here we only guard pagination & state.
  */
-@Validated
 @RestController
 @RequestMapping("/bookings")
 @RequiredArgsConstructor
@@ -27,20 +23,15 @@ public class BookingController {
 
     private final BookingService service;
 
-    /**
-     * POST /bookings — create a booking request (initial status WAITING).
-     */
+    /** POST /bookings — create a booking request (initial status WAITING). */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public BookingResponse create(@CurrentUserId Long userId,
-                                  @RequestBody @Valid BookingCreateDto dto) {
+                                  @RequestBody @jakarta.validation.Valid BookingCreateDto dto) {
         return service.create(userId, dto);
     }
 
-    /**
-     * PATCH /bookings/{id}?approved={true|false} —
-     * item owner approves or rejects a booking.
-     */
+    /** PATCH /bookings/{id}?approved={true|false} — owner approves/rejects a booking. */
     @PatchMapping("/{bookingId}")
     public BookingResponse approve(@CurrentUserId Long ownerId,
                                    @PathVariable Long bookingId,
@@ -48,38 +39,40 @@ public class BookingController {
         return service.approve(ownerId, bookingId, approved);
     }
 
-    /**
-     * GET /bookings/{id} — fetch booking by id
-     * (accessible to booker or item owner).
-     */
+    /** GET /bookings/{id} — fetch booking by id (booker or owner). */
     @GetMapping("/{bookingId}")
     public BookingResponse get(@CurrentUserId Long userId,
                                @PathVariable Long bookingId) {
         return service.get(userId, bookingId);
     }
 
-    /**
-     * GET /bookings?state=... — list current user's bookings.
-     */
+    /** GET /bookings?state=... — list current user's bookings. */
     @GetMapping
     public List<BookingResponse> listUser(@CurrentUserId Long userId,
                                           @RequestParam(name = "state", defaultValue = "ALL") String stateParam,
-                                          @RequestParam(name = "from",  defaultValue = "0")  @PositiveOrZero int from,
-                                          @RequestParam(name = "size",  defaultValue = "20") @Positive      int size) {
-        BookingStateParam state = parseState(stateParam);
+                                          @RequestParam(name = "from",  defaultValue = "0")  int from,
+                                          @RequestParam(name = "size",  defaultValue = "20") int size) {
+        validatePage(from, size);
+        var state = parseState(stateParam);
         return service.listUser(userId, state, from, size);
     }
 
-    /**
-     * GET /bookings/owner?state=... — list bookings for items of current owner.
-     */
+    /** GET /bookings/owner?state=... — list bookings for items of current owner. */
     @GetMapping("/owner")
     public List<BookingResponse> listOwner(@CurrentUserId Long ownerId,
                                            @RequestParam(name = "state", defaultValue = "ALL") String stateParam,
-                                           @RequestParam(name = "from",  defaultValue = "0")  @PositiveOrZero int from,
-                                           @RequestParam(name = "size",  defaultValue = "20") @Positive      int size) {
-        BookingStateParam state = parseState(stateParam);
+                                           @RequestParam(name = "from",  defaultValue = "0")  int from,
+                                           @RequestParam(name = "size",  defaultValue = "20") int size) {
+        validatePage(from, size);
+        var state = parseState(stateParam);
         return service.listOwner(ownerId, state, from, size);
+    }
+
+    // ---- helpers ----
+
+    private static void validatePage(int from, int size) {
+        if (from < 0) throw new BadRequestException("from must be >= 0");
+        if (size <= 0) throw new BadRequestException("size must be > 0");
     }
 
     private static BookingStateParam parseState(String raw) {

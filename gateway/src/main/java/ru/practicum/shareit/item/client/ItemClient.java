@@ -27,7 +27,6 @@ public class ItemClient extends BaseClient {
         super(
                 builder
                         .uriTemplateHandler(new DefaultUriBuilderFactory(trimTrailingSlash(serverUrl) + API_PREFIX))
-                        // Function overload to avoid ambiguity on Spring Boot 3.3+
                         .requestFactory(settings -> new HttpComponentsClientHttpRequestFactory())
                         .setConnectTimeout(Duration.ofSeconds(3))
                         .setReadTimeout(Duration.ofSeconds(10))

@@ -1,5 +1,7 @@
 package ru.practicum.shareit.booking.dto;
 
+import ru.practicum.shareit.common.exception.BadRequestException;
+
 /** Allowed values for the "state" query parameter (listing filter). */
 public enum BookingStateParam {
     ALL,
@@ -10,10 +12,11 @@ public enum BookingStateParam {
     REJECTED;
 
     public static BookingStateParam from(String value) {
+        if (value == null) return ALL;
         try {
-            return value == null ? ALL : BookingStateParam.valueOf(value.toUpperCase());
+            return BookingStateParam.valueOf(value.toUpperCase());
         } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Unknown state: " + value);
+            throw new BadRequestException("Unknown state: " + value);
         }
     }
 }

@@ -40,7 +40,7 @@ public class RequestController {
 
     @GetMapping("/all")
     public ResponseEntity<Object> findAllExceptUser(
-            @RequestHeader("X-Sharer-User-Id") long userId,
+            @RequestHeader("X-Sharer-User-Id") @Positive long userId,
             @PositiveOrZero @RequestParam(name = "from", defaultValue = "0") Integer from,
             @Positive @RequestParam(name = "size", defaultValue = "10") Integer size
     ) {
@@ -50,8 +50,8 @@ public class RequestController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Object> getById(
-            @RequestHeader("X-Sharer-User-Id") long userId,
-            @PathVariable("id") long id
+            @RequestHeader("X-Sharer-User-Id") @Positive long userId,
+            @PathVariable("id") @Positive long id
     ) {
         log.info("Get item request id={} by userId={}", id, userId);
         return requestClient.getById(userId, id);

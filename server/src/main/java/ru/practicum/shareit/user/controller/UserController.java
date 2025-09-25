@@ -1,6 +1,5 @@
 package ru.practicum.shareit.user.controller;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +26,7 @@ public class UserController {
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse create(@RequestBody @Valid UserCreateDto dto) {
+    public UserResponse create(@RequestBody @jakarta.validation.Valid UserCreateDto dto) {
         return service.create(dto);
     }
 
@@ -51,7 +50,8 @@ public class UserController {
      * @apiNote Patch user fields. Returns 409 if email becomes non-unique.
      */
     @PatchMapping("/{id}")
-    public UserResponse patch(@PathVariable Long id, @RequestBody @Valid UserUpdateDto dto) {
+    public UserResponse patch(@PathVariable Long id,
+                              @RequestBody @jakarta.validation.Valid UserUpdateDto dto) {
         return service.patch(id, dto);
     }
 

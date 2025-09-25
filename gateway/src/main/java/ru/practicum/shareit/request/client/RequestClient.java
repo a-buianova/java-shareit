@@ -22,8 +22,8 @@ public class RequestClient extends BaseClient {
     public RequestClient(@Value("${shareit.server.url}") String serverUrl, RestTemplateBuilder builder) {
         super(
                 builder
-                        .uriTemplateHandler(new DefaultUriBuilderFactory(serverUrl + API_PREFIX))
-                        .requestFactory(settings -> new HttpComponentsClientHttpRequestFactory())
+                        .uriTemplateHandler(new DefaultUriBuilderFactory(trimTrailingSlash(serverUrl) + API_PREFIX))
+                        .requestFactory(cfg -> new HttpComponentsClientHttpRequestFactory())
                         .setConnectTimeout(Duration.ofSeconds(3))
                         .setReadTimeout(Duration.ofSeconds(10))
                         .build()
@@ -45,5 +45,9 @@ public class RequestClient extends BaseClient {
 
     public ResponseEntity<Object> getById(long userId, long requestId) {
         return get("/" + requestId, userId);
+    }
+
+    private static String trimTrailingSlash(String url) {
+        return (url != null && url.endsWith("/")) ? url.substring(0, url.length() - 1) : url;
     }
 }

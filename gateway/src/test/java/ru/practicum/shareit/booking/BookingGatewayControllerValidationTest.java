@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,9 +20,12 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Negative validation tests for {@link BookingController} in Gateway.
+ */
 @WebMvcTest(controllers = BookingController.class)
 @ActiveProfiles("test")
-@DisplayName("Gateway/BookingController — validation (negative)")
+@DisplayName("Gateway/BookingController - validation (negative cases)")
 class BookingGatewayControllerValidationTest {
 
     private static final String HDR = "X-Sharer-User-Id";
@@ -36,11 +40,13 @@ class BookingGatewayControllerValidationTest {
     class Create {
 
         @Test
-        @DisplayName("400 — missing header")
+        @DisplayName("400 - missing X-Sharer-User-Id header")
         void missingHeader_400() throws Exception {
-            var dto = new BookItemRequestDto(1L,
+            var dto = new BookItemRequestDto(
+                    1L,
                     LocalDateTime.now().plusDays(1),
-                    LocalDateTime.now().plusDays(2));
+                    LocalDateTime.now().plusDays(2)
+            );
 
             mvc.perform(post("/bookings")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -51,11 +57,13 @@ class BookingGatewayControllerValidationTest {
         }
 
         @Test
-        @DisplayName("400 — itemId is 0")
+        @DisplayName("400 - itemId = 0 (must be positive)")
         void itemId_zero_400() throws Exception {
-            var dto = new BookItemRequestDto(0,
+            var dto = new BookItemRequestDto(
+                    0L,
                     LocalDateTime.now().plusDays(1),
-                    LocalDateTime.now().plusDays(2));
+                    LocalDateTime.now().plusDays(2)
+            );
 
             mvc.perform(post("/bookings")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -67,7 +75,7 @@ class BookingGatewayControllerValidationTest {
         }
 
         @Test
-        @DisplayName("400 — start in past")
+        @DisplayName("400 - start in the past")
         void start_inPast_400() throws Exception {
             var now = LocalDateTime.now();
             var dto = new BookItemRequestDto(1L, now.minusMinutes(1), now.plusHours(1));
@@ -82,10 +90,10 @@ class BookingGatewayControllerValidationTest {
         }
 
         @Test
-        @DisplayName("400 — end <= start")
+        @DisplayName("400 - end is not after start")
         void end_notAfterStart_400() throws Exception {
-            var now = LocalDateTime.now().plusDays(1);
-            var dto = new BookItemRequestDto(1L, now, now);
+            var t = LocalDateTime.now().plusDays(1);
+            var dto = new BookItemRequestDto(1L, t, t);
 
             mvc.perform(post("/bookings")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -102,7 +110,7 @@ class BookingGatewayControllerValidationTest {
     class Approve {
 
         @Test
-        @DisplayName("400 — missing 'approved' param")
+        @DisplayName("400 - missing required 'approved' parameter")
         void missingApprovedParam_400() throws Exception {
             mvc.perform(patch("/bookings/{id}", 55L)
                             .header(HDR, 1))

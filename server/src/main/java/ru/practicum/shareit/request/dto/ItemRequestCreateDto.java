@@ -13,8 +13,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ItemRequestCreateDto {
-
-        @NotBlank(message = "description must not be blank")
-        @Size(max = 500, message = "description must not exceed 500 characters")
+        @NotBlank
+        @Size(max = 500)
         private String description;
+        // getters / ctor как у тебя
 }

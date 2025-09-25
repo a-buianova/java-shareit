@@ -28,7 +28,7 @@ public class BookingController {
 			@PositiveOrZero @RequestParam(name = "from", defaultValue = "0") Integer from,
 			@Positive @RequestParam(name = "size", defaultValue = "10") Integer size) {
 
-		BookingState state = BookingState.from(stateParam); // throws on bad value -> 400 by handler
+		BookingState state = BookingState.from(stateParam);
 		log.info("Get bookings (booker) state={}, userId={}, from={}, size={}", state, userId, from, size);
 		return bookingClient.getBookings(userId, state, from, size);
 	}
@@ -40,7 +40,7 @@ public class BookingController {
 			@PositiveOrZero @RequestParam(name = "from", defaultValue = "0") Integer from,
 			@Positive @RequestParam(name = "size", defaultValue = "10") Integer size) {
 
-		BookingState state = BookingState.from(stateParam); // throws on bad value -> 400 by handler
+		BookingState state = BookingState.from(stateParam);
 		log.info("Get bookings (owner) state={}, ownerId={}, from={}, size={}", state, ownerId, from, size);
 		return bookingClient.getOwnerBookings(ownerId, state, from, size);
 	}
@@ -50,10 +50,6 @@ public class BookingController {
 			@RequestHeader("X-Sharer-User-Id") long userId,
 			@RequestBody @Valid BookItemRequestDto requestDto) {
 
-		if (requestDto.getStart() != null && requestDto.getEnd() != null
-				&& !requestDto.getStart().isBefore(requestDto.getEnd())) {
-			throw new IllegalArgumentException("start must be before end");
-		}
 		log.info("Creating booking {}, userId={}", requestDto, userId);
 		return bookingClient.bookItem(userId, requestDto);
 	}

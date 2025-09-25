@@ -24,7 +24,7 @@ public class ItemController {
 
     @PostMapping
     public ResponseEntity<Object> create(
-            @RequestHeader("X-Sharer-User-Id") long ownerId,
+            @RequestHeader("X-Sharer-User-Id") @Positive long ownerId,
             @RequestBody @Valid ItemCreateDto dto
     ) {
         log.info("Create item ownerId={}, requestId={}", ownerId, dto.requestId());
@@ -33,8 +33,8 @@ public class ItemController {
 
     @PatchMapping("/{itemId}")
     public ResponseEntity<Object> update(
-            @RequestHeader("X-Sharer-User-Id") long ownerId,
-            @PathVariable long itemId,
+            @RequestHeader("X-Sharer-User-Id") @Positive long ownerId,
+            @PathVariable @Positive long itemId,
             @RequestBody @Valid ItemUpdateDto dto
     ) {
         log.info("Patch item id={}, ownerId={}", itemId, ownerId);
@@ -43,8 +43,8 @@ public class ItemController {
 
     @GetMapping("/{itemId}")
     public ResponseEntity<Object> getById(
-            @RequestHeader("X-Sharer-User-Id") long userId,
-            @PathVariable long itemId
+            @RequestHeader("X-Sharer-User-Id") @Positive long userId,
+            @PathVariable @Positive long itemId
     ) {
         log.info("Get item id={}, userId={}", itemId, userId);
         return client.getById(userId, itemId);
@@ -52,7 +52,7 @@ public class ItemController {
 
     @GetMapping
     public ResponseEntity<Object> listOwnerItems(
-            @RequestHeader("X-Sharer-User-Id") long ownerId,
+            @RequestHeader("X-Sharer-User-Id") @Positive long ownerId,
             @PositiveOrZero @RequestParam(defaultValue = "0") Integer from,
             @Positive @RequestParam(defaultValue = "10") Integer size
     ) {
@@ -62,14 +62,14 @@ public class ItemController {
 
     @GetMapping("/search")
     public ResponseEntity<Object> search(
-            @RequestHeader("X-Sharer-User-Id") long userId,
+            @RequestHeader("X-Sharer-User-Id") @Positive long userId,
             @RequestParam String text,
             @PositiveOrZero @RequestParam(defaultValue = "0") Integer from,
             @Positive @RequestParam(defaultValue = "10") Integer size
     ) {
         if (text == null || text.trim().isEmpty()) {
             log.info("Search with blank text -> returning [] without calling server");
-            return ResponseEntity.ok().body(java.util.List.of());
+            return ResponseEntity.ok(java.util.List.of());
         }
         log.info("Search items userId={}, text='{}', from={}, size={}", userId, text, from, size);
         return client.search(userId, text, from, size);
@@ -77,8 +77,8 @@ public class ItemController {
 
     @PostMapping("/{itemId}/comment")
     public ResponseEntity<Object> addComment(
-            @RequestHeader("X-Sharer-User-Id") long userId,
-            @PathVariable long itemId,
+            @RequestHeader("X-Sharer-User-Id") @Positive long userId,
+            @PathVariable @Positive long itemId,
             @RequestBody @Valid CommentCreateDto dto
     ) {
         log.info("Add comment to item id={}, userId={}", itemId, userId);

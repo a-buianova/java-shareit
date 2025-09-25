@@ -16,8 +16,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class BookItemRequestDto {
 
+	@NotNull
 	@Positive
-	private long itemId;
+	private Long itemId;
 
 	@NotNull
 	@FutureOrPresent

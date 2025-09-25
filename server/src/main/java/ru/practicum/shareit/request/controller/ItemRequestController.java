@@ -1,12 +1,9 @@
 package ru.practicum.shareit.request.controller;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import ru.practicum.shareit.common.exception.BadRequestException;
 import ru.practicum.shareit.common.web.CurrentUserId;
 import ru.practicum.shareit.request.dto.ItemRequestCreateDto;
 import ru.practicum.shareit.request.dto.ItemRequestResponse;
@@ -16,8 +13,8 @@ import java.util.List;
 
 /**
  * REST controller for item requests.
+ * Note: request-body validation lives in the gateway; here we only guard pagination.
  */
-@Validated
 @RestController
 @RequestMapping("/requests")
 @RequiredArgsConstructor
@@ -28,7 +25,7 @@ public class ItemRequestController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ItemRequestResponse create(@CurrentUserId Long userId,
-                                      @RequestBody @Valid ItemRequestCreateDto dto) {
+                                      @RequestBody @jakarta.validation.Valid ItemRequestCreateDto dto) { // <-- ДОБАВИЛИ @Valid
         return service.create(userId, dto);
     }
 
@@ -39,10 +36,9 @@ public class ItemRequestController {
 
     @GetMapping("/all")
     public List<ItemRequestResponse> findAllExceptUser(@CurrentUserId Long userId,
-                                                       @RequestParam(defaultValue = "0")
-                                                       @PositiveOrZero int from,
-                                                       @RequestParam(defaultValue = "10")
-                                                       @Positive int size) {
+                                                       @RequestParam(defaultValue = "0") int from,
+                                                       @RequestParam(defaultValue = "10") int size) {
+        validatePage(from, size);
         return service.findAllExceptUser(userId, from, size);
     }
 
@@ -50,5 +46,11 @@ public class ItemRequestController {
     public ItemRequestResponse getById(@CurrentUserId Long userId,
                                        @PathVariable("id") Long requestId) {
         return service.getById(userId, requestId);
+    }
+
+    // --- helpers ---
+    private static void validatePage(int from, int size) {
+        if (from < 0) throw new BadRequestException("from must be >= 0");
+        if (size <= 0) throw new BadRequestException("size must be > 0");
     }
 }
