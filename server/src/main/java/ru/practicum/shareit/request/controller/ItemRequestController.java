@@ -25,7 +25,7 @@ public class ItemRequestController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ItemRequestResponse create(@CurrentUserId Long userId,
-                                      @RequestBody @jakarta.validation.Valid ItemRequestCreateDto dto) { // <-- ДОБАВИЛИ @Valid
+                                      @RequestBody  ItemRequestCreateDto dto) {
         return service.create(userId, dto);
     }
 

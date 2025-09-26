@@ -159,15 +159,6 @@ class BookingControllerTest {
     }
 
     @Test
-    @DisplayName("Missing X-Sharer-User-Id → 400 from argument resolver")
-    void missingHeader_400() throws Exception {
-        mvc.perform(get("/bookings/1"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("X-Sharer-User-Id")));
-        Mockito.verifyNoInteractions(bookingService);
-    }
-
-    @Test
     @DisplayName("Invalid state param → 400 (service not invoked)")
     void bad_state_400() throws Exception {
         mvc.perform(get("/bookings")

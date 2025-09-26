@@ -21,7 +21,7 @@ public class ItemController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ItemResponse create(@CurrentUserId Long userId,
-                               @RequestBody @jakarta.validation.Valid ItemCreateDto dto) {
+                               @RequestBody  ItemCreateDto dto) {
         return service.create(userId, dto);
     }
 
@@ -39,7 +39,7 @@ public class ItemController {
     @PatchMapping("/{itemId}")
     public ItemResponse patch(@CurrentUserId Long userId,
                               @PathVariable Long itemId,
-                              @RequestBody @jakarta.validation.Valid ItemUpdateDto dto) {
+                              @RequestBody  ItemUpdateDto dto) {
         return service.patch(userId, itemId, dto);
     }
 
@@ -53,7 +53,7 @@ public class ItemController {
     @ResponseStatus(HttpStatus.CREATED)
     public CommentResponse addComment(@CurrentUserId Long userId,
                                       @PathVariable Long itemId,
-                                      @RequestBody @jakarta.validation.Valid CommentCreateDto dto) {
+                                      @RequestBody  CommentCreateDto dto) {
         return service.addComment(userId, itemId, dto);
     }
 }

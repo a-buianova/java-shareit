@@ -49,22 +49,6 @@ class UserControllerTest {
     }
 
     @Test
-    @DisplayName("POST /users — 400 on validation errors")
-    void create_400_validation() throws Exception {
-        mvc.perform(post("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"\",\"email\":\"a@ex.com\"}"))
-                .andExpect(status().isBadRequest());
-
-        mvc.perform(post("/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Ann\",\"email\":\"wrong\"}"))
-                .andExpect(status().isBadRequest());
-
-        Mockito.verifyNoInteractions(userService);
-    }
-
-    @Test
     @DisplayName("GET /users/{id} — 200 OK")
     void get_200() throws Exception {
         Mockito.when(userService.get(1L)).thenReturn(new UserResponse(1L, "Ann", "a@ex.com"));
@@ -101,16 +85,6 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.name").value("New Name"));
     }
 
-    @Test
-    @DisplayName("PATCH /users/{id} — 400 on invalid email")
-    void patch_400_invalidEmail() throws Exception {
-        mvc.perform(patch("/users/{id}", 1)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"wrong\"}"))
-                .andExpect(status().isBadRequest());
-
-        Mockito.verifyNoInteractions(userService);
-    }
 
     @Test
     @DisplayName("DELETE /users/{id} — 204 No Content")

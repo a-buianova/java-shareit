@@ -27,7 +27,7 @@ public class BookingController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public BookingResponse create(@CurrentUserId Long userId,
-                                  @RequestBody @jakarta.validation.Valid BookingCreateDto dto) {
+                                  @RequestBody BookingCreateDto dto) {
         return service.create(userId, dto);
     }
 
@@ -53,7 +53,7 @@ public class BookingController {
                                           @RequestParam(name = "from",  defaultValue = "0")  int from,
                                           @RequestParam(name = "size",  defaultValue = "20") int size) {
         validatePage(from, size);
-        var state = parseState(stateParam);
+        var state = BookingStateParam.from(stateParam);
         return service.listUser(userId, state, from, size);
     }
 
@@ -64,7 +64,7 @@ public class BookingController {
                                            @RequestParam(name = "from",  defaultValue = "0")  int from,
                                            @RequestParam(name = "size",  defaultValue = "20") int size) {
         validatePage(from, size);
-        var state = parseState(stateParam);
+        var state = BookingStateParam.from(stateParam);
         return service.listOwner(ownerId, state, from, size);
     }
 
@@ -73,13 +73,5 @@ public class BookingController {
     private static void validatePage(int from, int size) {
         if (from < 0) throw new BadRequestException("from must be >= 0");
         if (size <= 0) throw new BadRequestException("size must be > 0");
-    }
-
-    private static BookingStateParam parseState(String raw) {
-        try {
-            return BookingStateParam.from(raw);
-        } catch (IllegalArgumentException ex) {
-            throw new BadRequestException("Unknown state: " + raw);
-        }
     }
 }

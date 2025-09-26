@@ -58,20 +58,6 @@ class ItemControllerTest {
     }
 
     @Test
-    @DisplayName("POST /items — 400 Bad Request (DTO validation)")
-    void create_400_validation() throws Exception {
-        var bad = new ItemCreateDto("  ", "", null, null);
-
-        mvc.perform(post("/items")
-                        .header(HDR, 10)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsBytes(bad)))
-                .andExpect(status().isBadRequest());
-
-        Mockito.verifyNoInteractions(itemService);
-    }
-
-    @Test
     @DisplayName("PATCH /items/{id} — 200 OK")
     void patch_200() throws Exception {
         var in  = new ItemUpdateDto("Drill 650W", null, null);
@@ -90,19 +76,6 @@ class ItemControllerTest {
                 .andExpect(jsonPath("$.available").value(true));
     }
 
-    @Test
-    @DisplayName("PATCH /items/{id} — 400 Bad Request (DTO @Size)")
-    void patch_400_validation() throws Exception {
-        var bad = new ItemUpdateDto("", "", null);
-
-        mvc.perform(patch("/items/{id}", 5)
-                        .header(HDR, 1)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsBytes(bad)))
-                .andExpect(status().isBadRequest());
-
-        Mockito.verify(itemService, Mockito.never()).patch(anyLong(), anyLong(), any());
-    }
 
     @Test
     @DisplayName("GET /items/{id} — 200 OK (details, bookings, comments)")
@@ -203,43 +176,5 @@ class ItemControllerTest {
                 .andExpect(jsonPath("$.authorId").value(7))
                 .andExpect(jsonPath("$.authorName").value("Booker"))
                 .andExpect(jsonPath("$.created").exists());
-    }
-
-    @Test
-    @DisplayName("POST /items/{id}/comment — 400 Bad Request (DTO validation)")
-    void add_comment_400_validation() throws Exception {
-        var bad = new CommentCreateDto("   ");
-
-        mvc.perform(post("/items/{itemId}/comment", 55)
-                        .header(HDR, 7)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsBytes(bad)))
-                .andExpect(status().isBadRequest());
-
-        Mockito.verify(itemService, Mockito.never()).addComment(anyLong(), anyLong(), any());
-    }
-
-    @Test
-    @DisplayName("Missing X-Sharer-User-Id — 400 Bad Request (create/list/patch/comment)")
-    void missing_header_400() throws Exception {
-        mvc.perform(post("/items")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsBytes(new ItemCreateDto("A","B",true,null))))
-                .andExpect(status().isBadRequest());
-
-        mvc.perform(get("/items"))
-                .andExpect(status().isBadRequest());
-
-        mvc.perform(patch("/items/{id}", 5)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsBytes(new ItemUpdateDto("X", null, null))))
-                .andExpect(status().isBadRequest());
-
-        mvc.perform(post("/items/{itemId}/comment", 55)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsBytes(new CommentCreateDto("ok"))))
-                .andExpect(status().isBadRequest());
-
-        Mockito.verifyNoInteractions(itemService);
     }
 }

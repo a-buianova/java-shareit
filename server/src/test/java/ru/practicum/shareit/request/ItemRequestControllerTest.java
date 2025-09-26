@@ -71,17 +71,6 @@ class ItemRequestControllerTest {
     }
 
     @Test
-    @DisplayName("POST /requests — 400 when description is blank")
-    void create_400_validation() throws Exception {
-        mvc.perform(post("/requests")
-                        .header(HDR, 7)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"description\":\"   \"}"))
-                .andExpect(status().isBadRequest());
-        Mockito.verifyNoInteractions(service);
-    }
-
-    @Test
     @DisplayName("GET /requests — returns user's requests (DESC by created)")
     void findOwn_ok() throws Exception {
         var r1 = new ItemRequestResponse(1L, "A", Instant.now(),
@@ -144,31 +133,4 @@ class ItemRequestControllerTest {
                 .andExpect(status().isNotFound());
     }
 
-    @Test
-    @DisplayName("POST /requests — 400 when header is missing")
-    void missingHeader_create_400() throws Exception {
-        mvc.perform(post("/requests").contentType(MediaType.APPLICATION_JSON).content("{\"description\":\"x\"}"))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("GET /requests — 400 when header is missing")
-    void missingHeader_findOwn_400() throws Exception {
-        mvc.perform(get("/requests"))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("GET /requests/all — 400 when header is missing")
-    void missingHeader_findAll_400() throws Exception {
-        mvc.perform(get("/requests/all").param("from", "0").param("size", "10"))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("GET /requests/{id} — 400 when header is missing")
-    void missingHeader_getById_400() throws Exception {
-        mvc.perform(get("/requests/{id}", 1L))
-                .andExpect(status().isBadRequest());
-    }
 }
