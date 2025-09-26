@@ -147,8 +147,8 @@ public class ItemServiceImpl implements ItemService {
         Item item = itemRepo.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("item not found"));
 
-        boolean allowed = bookingRepo.hasFinishedApprovedBooking(userId, itemId, Instant.now());
-        if (!allowed) {
+        boolean allowed = bookingRepo.hasFinishedApprovedBooking(
+                userId, itemId, Instant.now().plusSeconds(1));        if (!allowed) {
             throw new BadRequestException("user has not completed an approved booking of this item");
         }
 

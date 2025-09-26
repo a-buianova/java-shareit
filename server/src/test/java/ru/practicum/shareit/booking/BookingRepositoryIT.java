@@ -123,4 +123,49 @@ class BookingRepositoryIT {
 
         assertThat(ok).isTrue();
     }
+
+    @Test
+    @DisplayName("hasFinishedApprovedBooking: true when end < now")
+    void hasFinishedApprovedBooking_endBeforeNow() {
+        var pastApproved = bookingRepo.save(Booking.builder()
+                .start(now.minusSeconds(5 * 3600))
+                .end(now.minusSeconds(2 * 3600))
+                .item(itemRepo.findById(itemId).orElseThrow())
+                .booker(userRepo.findById(bookerId).orElseThrow())
+                .status(BookingStatus.APPROVED)
+                .build());
+
+        boolean allowed = bookingRepo.hasFinishedApprovedBooking(bookerId, itemId, now);
+        assertThat(allowed).isTrue();
+    }
+
+    @Test
+    @DisplayName("hasFinishedApprovedBooking: true when end == now")
+    void hasFinishedApprovedBooking_endEqualNow() {
+        var equalApproved = bookingRepo.save(Booking.builder()
+                .start(now.minusSeconds(5 * 3600))
+                .end(now)
+                .item(itemRepo.findById(itemId).orElseThrow())
+                .booker(userRepo.findById(bookerId).orElseThrow())
+                .status(BookingStatus.APPROVED)
+                .build());
+
+        boolean allowed = bookingRepo.hasFinishedApprovedBooking(bookerId, itemId, now);
+        assertThat(allowed).isTrue();
+    }
+
+    @Test
+    @DisplayName("hasFinishedApprovedBooking: false when end > now")
+    void hasFinishedApprovedBooking_endAfterNow() {
+        var futureApproved = bookingRepo.save(Booking.builder()
+                .start(now.minusSeconds(5 * 3600))
+                .end(now.plusSeconds(2 * 3600))
+                .item(itemRepo.findById(itemId).orElseThrow())
+                .booker(userRepo.findById(bookerId).orElseThrow())
+                .status(BookingStatus.APPROVED)
+                .build());
+
+        boolean allowed = bookingRepo.hasFinishedApprovedBooking(bookerId, itemId, now);
+        assertThat(allowed).isFalse();
+    }
 }
